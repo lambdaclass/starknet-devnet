@@ -6,6 +6,7 @@ import logging
 from copy import copy
 from typing import Iterable, cast, Tuple, Optional, Dict, Any, Callable, List
 
+from starkware.starknet.core.os.syscall_utils import HandlerException
 from starkware.starknet.core.os.syscall_utils import get_runtime_type
 from starkware.starknet.core.os.syscall_utils import SysCallInfo
 from starkware.starknet.core.os.syscall_utils import BusinessLogicSysCallHandler
@@ -194,6 +195,8 @@ def cairo_rs_py_run(
             raise StarkException(
                 code=StarknetErrorCode.SECURITY_ERROR, message=str(exception)
             ) from exception
+        except HandlerException as exception:
+           raise StarkException(code=exception.stark_exception.code, message=str(exception.stark_exception.message)) from exception
         except Exception as exception:
             logger.error("Got an unexpected exception.", exc_info=True)
             raise StarkException(
