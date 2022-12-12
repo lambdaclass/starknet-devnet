@@ -16,7 +16,6 @@ from starkware.cairo.lang.compiler.program import Program
 from starkware.cairo.lang.compiler.scoped_name import ScopedName
 from starkware.cairo.lang.vm.memory_segments import MemorySegmentManager
 from starkware.cairo.lang.vm.relocatable import MaybeRelocatable, RelocatableValue
-from starkware.cairo.lang.vm.security import SecurityError
 from starkware.cairo.lang.vm.utils import ResourcesError
 from starkware.cairo.lang.vm.vm_exceptions import (
     HintException,
@@ -58,16 +57,15 @@ from starkware.starknet.definitions.general_config import StarknetGeneralConfig
 from starkware.starknet.public import abi as starknet_abi
 from starkware.starknet.public.abi import SYSCALL_PTR_OFFSET
 from starkware.starknet.services.api.contract_class import ContractClass
-
-logger = logging.getLogger(__name__)
-__version__ = "0.4.2"
-
 from starkware.starkware_utils.error_handling import (
     ErrorCode,
     StarkException,
     stark_assert,
     wrap_with_stark_exception,
 )
+
+logger = logging.getLogger(__name__)
+__version__ = "0.4.2"
 
 
 def patched_pedersen_hash(left: int, right: int) -> int:
