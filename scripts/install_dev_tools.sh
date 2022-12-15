@@ -19,5 +19,4 @@ npm ci
 
 # install cairo-rs-py
 git clone git@github.com:lambdaclass/cairo-rs-py.git
-pip install maturin
 cd cairo-rs-py; maturin develop --release
