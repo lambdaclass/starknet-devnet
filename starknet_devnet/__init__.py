@@ -44,9 +44,7 @@ def simpler_copy(self, memo):  # pylint: disable=unused-argument
     return copy(self)
 
 
-# Apply cairo-rs-py patch
-
-cairo_rs_py_monkeypatch()
-
-
 setattr(ContractClass, "__deepcopy__", simpler_copy)
+
+# Apply cairo-rs-py patch
+cairo_rs_py_monkeypatch()
