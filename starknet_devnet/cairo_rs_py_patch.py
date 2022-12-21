@@ -157,7 +157,6 @@ def cairo_rs_py_run(
             exception.notes = [message_prefix + str(stark_exception.message)]
         if isinstance(exception.inner_exc, ResourcesError):
             code = StarknetErrorCode.OUT_OF_RESOURCES
-
         raise StarkException(code=code, message=str(exception)) from exception
     except VmExceptionBase as exception:
         raise StarkException(
