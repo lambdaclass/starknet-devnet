@@ -421,30 +421,6 @@ def cairo_rs_py_read_and_validate_syscall_request(
 
     return request
 
-
-def cairo_rs_py_calculate_l1_gas_by_cairo_usage(
-    general_config: StarknetGeneralConfig,
-    cairo_resource_usage: ResourcesMapping,
-) -> float:
-    """
-    Calculates the L1 gas consumed when submitting the underlying Cairo program to SHARP.
-    I.e., returns the heaviest Cairo resource weight (in terms of L1 gas), as the size of
-    a proof is determined similarly - by the (normalized) largest segment.
-    """
-    cairo_resource_fee_weights = general_config.cairo_resource_fee_weights
-    cairo_resource_names = set(cairo_resource_usage.keys())
-    # assert cairo_resource_names.issubset(
-    #     cairo_resource_fee_weights.keys()
-    # ), "Cairo resource names must be contained in fee weights dict."
-
-    # Convert Cairo usage to L1 gas usage.
-    cairo_l1_gas_usage = max(
-        cairo_resource_fee_weights[key] * cairo_resource_usage.get(key, 0)
-        for key in cairo_resource_fee_weights
-    )
-    return cairo_l1_gas_usage
-
-
 def cairo_rs_py_get_os_segment_ptr_range(
     runner: CairoFunctionRunner, ptr_offset: int, os_context: List[MaybeRelocatable]
 ) -> Tuple[MaybeRelocatable, MaybeRelocatable]:
@@ -554,11 +530,6 @@ def cairo_rs_py_monkeypatch():
         BusinessLogicSysCallHandler,
         "validate_read_only_segments",
         cairo_rs_py_validate_read_only_segments,
-    )
-    setattr(
-        sys.modules["starkware.starknet.business_logic.transaction.fee"],
-        "calculate_l1_gas_by_cairo_usage)",
-        cairo_rs_py_calculate_l1_gas_by_cairo_usage,
     )
     setattr(
         sys.modules["starkware.starknet.core.os.syscall_utils"],
