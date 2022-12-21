@@ -1,16 +1,17 @@
 """
 Contains the server implementation and its utility classes and functions.
 """
-import logging
+
 import sys
 from copy import copy
 
+import starkware.cairo.lang.vm.crypto
 from crypto_cpp_py.cpp_bindings import cpp_hash
+from starkware.crypto.signature.fast_pedersen_hash import pedersen_hash
 from starkware.starknet.services.api.contract_class import ContractClass
 
 from starknet_devnet.cairo_rs_py_patch import cairo_rs_py_monkeypatch
 
-logger = logging.getLogger(__name__)
 __version__ = "0.4.2"
 
 
