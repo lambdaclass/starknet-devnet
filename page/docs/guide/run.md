@@ -128,7 +128,7 @@ Using the Rust implementation brings improvement for Cairo-VM-intensive operatio
 
 You can enable it by following these steps:
 
-1. Install [cairo-rs-py](https://github.com/lambdaclass/cairo-rs-py) in the **same environment** as Devnet:
+1. Install [cairo-rs-py](https://github.com/lambdaclass/cairo-rs-py) in the [**same environment**](https://docs.python.org/3/library/venv.html) as Devnet:
 
 ```bash
 $ pip install maturin
