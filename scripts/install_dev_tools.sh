@@ -16,3 +16,7 @@ echo "poetry: $(poetry --version)"
 poetry install
 poetry lock --check
 npm ci
+
+# install cairo-rs-py
+git clone git@github.com:lambdaclass/cairo-rs-py.git
+poetry run maturin develop --release -m cairo-rs-py/Cargo.toml
