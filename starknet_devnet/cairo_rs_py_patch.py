@@ -11,9 +11,6 @@ import sys
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, cast
 
 import cairo_rs_py
-from starkware.starknet.business_logic.transaction.fee import (
-    calculate_l1_gas_by_cairo_usage,
-)  # TODO change?
 from starkware.cairo.common.cairo_function_runner import CairoFunctionRunner
 from starkware.cairo.common.structs import CairoStructFactory, CairoStructProxy
 
@@ -155,9 +152,7 @@ def cairo_rs_py_run(
         if isinstance(exception.inner_exc, syscall_utils.HandlerException):
             stark_exception = exception.inner_exc.stark_exception
             code = stark_exception.code
-            called_contract_address = (
-                exception.inner_exc.called_contract_address
-            )
+            called_contract_address = exception.inner_exc.called_contract_address
             message_prefix = (
                 f"Error in the called contract ({hex(called_contract_address)}):\n"
             )
@@ -421,6 +416,7 @@ def cairo_rs_py_read_and_validate_syscall_request(
     # )
 
     return request
+
 
 def cairo_rs_py_get_os_segment_ptr_range(
     runner: CairoFunctionRunner, ptr_offset: int, os_context: List[MaybeRelocatable]
