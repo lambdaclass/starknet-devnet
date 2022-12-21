@@ -1,16 +1,17 @@
 """
 Contains the server implementation and its utility classes and functions.
 """
-import logging
+
+from logging import warn
+import os
 import sys
 from copy import copy
 
 from crypto_cpp_py.cpp_bindings import cpp_hash
 from starkware.starknet.services.api.contract_class import ContractClass
 
-from starknet_devnet.cairo_rs_py_patch import cairo_rs_py_monkeypatch
+from .util import warn
 
-logger = logging.getLogger(__name__)
 __version__ = "0.4.2"
 
 
@@ -46,5 +47,11 @@ def simpler_copy(self, memo):  # pylint: disable=unused-argument
 
 setattr(ContractClass, "__deepcopy__", simpler_copy)
 
-# Apply cairo-rs-py patch
-cairo_rs_py_monkeypatch()
+if os.environ.get("STARKNET_DEVNET_RUST_VM"):
+    # Apply cairo-rs-py patch
+    from starknet_devnet.cairo_rs_py_patch import cairo_rs_py_monkeypatch
+
+    cairo_rs_py_monkeypatch()
+    warn("Using Rust implementation of Cairo VM")
+else:
+    warn("Using Python implementation of Cairo VM")

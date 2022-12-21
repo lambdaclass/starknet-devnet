@@ -1,13 +1,23 @@
-# Patch starknet methods to use cairo_rs_py
+"""Patch starknet methods to use cairo_rs_py"""
+
+# pylint: disable=bare-except
+# pylint: disable=missing-function-docstring
+# pylint: disable=protected-access
+# pylint: disable=too-many-locals
+
+
+import logging
 import sys
-from copy import copy
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, cast
 
 import cairo_rs_py
-from crypto_cpp_py.cpp_bindings import cpp_hash
+from starkware.starknet.business_logic.transaction.fee import (
+    calculate_l1_gas_by_cairo_usage,
+)  # TODO change?
 from starkware.cairo.common.cairo_function_runner import CairoFunctionRunner
 from starkware.cairo.common.structs import CairoStructFactory, CairoStructProxy
-from starkware.cairo.lang.compiler.identifier_definition import StructDefinition
+
+# from starkware.cairo.lang.compiler.identifier_definition import StructDefinition
 from starkware.cairo.lang.compiler.program import Program
 from starkware.cairo.lang.compiler.scoped_name import ScopedName
 from starkware.cairo.lang.vm.memory_segments import MemorySegmentManager
@@ -19,7 +29,6 @@ from starkware.cairo.lang.vm.vm_exceptions import (
     VmException,
     VmExceptionBase,
 )
-from starkware.crypto.signature.fast_pedersen_hash import pedersen_hash
 from starkware.python.utils import safe_zip
 from starkware.starknet.business_logic.execution.execute_entry_point import (
     FAULTY_CLASS_HASH,
@@ -30,19 +39,16 @@ from starkware.starknet.business_logic.execution.objects import (
     TransactionExecutionContext,
 )
 from starkware.starknet.business_logic.fact_state.state import ExecutionResourcesManager
-from starkware.starknet.business_logic.state.state_api import State, SyncState
-from starkware.starknet.business_logic.transaction import fee
+from starkware.starknet.business_logic.state.state_api import SyncState
 from starkware.starknet.business_logic.utils import validate_contract_deployed
 from starkware.starknet.core.os import os_utils, segment_utils, syscall_utils
 from starkware.starknet.core.os.class_hash import (
     get_contract_class_struct,
     load_program,
 )
-from starkware.starknet.core.os.syscall_utils import (
+from starkware.starknet.core.os.syscall_utils import (  # get_runtime_type,
     BusinessLogicSysCallHandler,
     HandlerException,
-    SysCallInfo,
-    get_runtime_type,
 )
 from starkware.starknet.definitions.error_codes import StarknetErrorCode
 from starkware.starknet.definitions.general_config import StarknetGeneralConfig
@@ -55,6 +61,8 @@ from starkware.starkware_utils.error_handling import (
     stark_assert,
     wrap_with_stark_exception,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def cairo_rs_py_run(
@@ -90,7 +98,7 @@ def cairo_rs_py_run(
 
     # Run the specified contract entry point with given calldata.
     with wrap_with_stark_exception(code=StarknetErrorCode.SECURITY_ERROR):
-        runner = cairo_rs_py.CairoRunner(
+        runner = cairo_rs_py.CairoRunner(  # pylint: disable=no-member
             program=contract_class.program.dumps(),
             entrypoint=None,
             layout="all",
@@ -193,14 +201,15 @@ def cairo_rs_py_run(
 
 
 def cairo_rs_py_compute_class_hash_inner(
-    contract_class: ContractClass, hash_func: Callable[[int, int], int]
+    contract_class: ContractClass,
+    hash_func: Callable[[int, int], int],  # pylint: disable=unused-argument
 ) -> int:
     program = load_program()
     contract_class_struct = get_contract_class_struct(
         identifiers=program.identifiers, contract_class=contract_class
     )
 
-    runner = cairo_rs_py.CairoRunner(
+    runner = cairo_rs_py.CairoRunner(  # pylint: disable=no-member
         program=program.dumps(), entrypoint=None, layout="all", proof_mode=False
     )
     runner.initialize_function_runner()
@@ -257,7 +266,7 @@ def run_function_runner(
     func = ScopedName.from_string(scope=func_name)
 
     full_args_struct = structs_factory.build_func_args(func=func)
-    all_args = full_args_struct(*args, **kwargs)
+    all_args = full_args_struct(*args, **kwargs)  # pylint: disable=not-callable
 
     try:
         runner.run_from_entrypoint(
@@ -401,11 +410,11 @@ def cairo_rs_py_read_and_validate_syscall_request(
         selector == syscall_info.selector
     ), f"Bad syscall selector, expected {syscall_info.selector}. Got: {selector}"
 
-    args_struct_def: StructDefinition = (
-        syscall_info.syscall_request_struct.struct_definition_
-    )
-    for arg, (arg_name, arg_def) in safe_zip(request, args_struct_def.members.items()):
-        expected_type = get_runtime_type(arg_def.cairo_type)
+    # args_struct_def: StructDefinition = (
+    #     syscall_info.syscall_request_struct.struct_definition_
+    # )
+    # for arg, (arg_name, arg_def) in safe_zip(request, args_struct_def.members.items()):
+    #     expected_type = get_runtime_type(arg_def.cairo_type)
     #     assert isinstance(arg, expected_type), (
     #         f"Argument {arg_name} to syscall {syscall_name} is of unexpected type. "
     #         f"Expected: value of type {expected_type}; got: {arg}."

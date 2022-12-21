@@ -119,3 +119,25 @@ docker run -p 127.0.0.1:5050:5050 shardlabs/starknet-devnet
 You may ignore any address-related output logged on container startup (e.g. `Running on all addresses` or `Running on http://172.17.0.2:5050`). What you will use is what you specified with the `-p` argument.
 
 If you don't specify the `HOST` part, the server will indeed be available on all of your host machine's addresses (localhost, local network IP, etc.), which may present a security issue if you don't want anyone from the local network to access your Devnet instance.
+
+## Run with the Rust implementation of Cairo VM
+
+By default, Devnet uses the [Python implementation](https://github.com/starkware-libs/cairo-lang/) of Cairo VM.
+
+Using the Rust implementation brings improvement for Cairo-VM-intensive operations, but introduces its own overhead, so it may not be useful for simple contracts and calls.
+
+You can enable it by following these steps:
+
+1. Install [cairo-rs-py](https://github.com/lambdaclass/cairo-rs-py) in the [**same environment**](https://docs.python.org/3/library/venv.html) as Devnet:
+
+```bash
+$ pip install maturin
+$ clone git@github.com:lambdaclass/cairo-rs-py.git
+$ maturin develop --release -m cairo-rs-py/Cargo.toml --no-default-features --features extension
+```
+
+2. Set `STARKNET_DEVNET_RUST_VM`
+
+```bash
+$ STARKNET_DEVNET_RUST_VM=1 starknet-devnet
+```
