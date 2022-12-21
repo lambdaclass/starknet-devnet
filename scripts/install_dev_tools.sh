@@ -19,8 +19,4 @@ npm ci
 
 # install cairo-rs-py
 git clone git@github.com:lambdaclass/cairo-rs-py.git
-<<<<<<< HEAD
-poetry run maturin develop --release -m cairo-rs-py/Cargo.toml
-=======
 poetry run maturin develop --release -m cairo-rs-py/Cargo.toml --no-default-features --features extension
->>>>>>> shardlabs/replace-runner-cairo-rs-py
