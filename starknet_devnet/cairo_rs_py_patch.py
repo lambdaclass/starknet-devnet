@@ -1,17 +1,32 @@
 # Patch starknet methods to use cairo_rs_py
 import sys
 from copy import copy
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, cast, Type, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+    cast,
+)
 
 import cairo_rs_py
 from cairo_rs_py import RelocatableValue
 from crypto_cpp_py.cpp_bindings import cpp_hash
 from starkware.cairo.common.cairo_function_runner import CairoFunctionRunner
 from starkware.cairo.common.structs import CairoStructFactory, CairoStructProxy
+from starkware.cairo.lang.compiler.ast.cairo_types import (
+    CairoType,
+    TypeFelt,
+    TypePointer,
+)
 from starkware.cairo.lang.compiler.identifier_definition import StructDefinition
 from starkware.cairo.lang.compiler.program import Program
 from starkware.cairo.lang.compiler.scoped_name import ScopedName
-from starkware.cairo.lang.compiler.ast.cairo_types import CairoType, TypeFelt, TypePointer
 from starkware.cairo.lang.vm.memory_segments import MemorySegmentManager
 from starkware.cairo.lang.vm.relocatable import MaybeRelocatable
 from starkware.cairo.lang.vm.utils import ResourcesError
@@ -40,12 +55,7 @@ from starkware.starknet.core.os.class_hash import (
     get_contract_class_struct,
     load_program,
 )
-from starkware.starknet.core.os.syscall_utils import (
-    BusinessLogicSysCallHandler,
-    HandlerException,
-    SysCallInfo,
-    get_runtime_type,
-)
+from starkware.starknet.core.os.syscall_utils import BusinessLogicSysCallHandler
 from starkware.starknet.definitions.error_codes import StarknetErrorCode
 from starkware.starknet.definitions.general_config import StarknetGeneralConfig
 from starkware.starknet.public import abi as starknet_abi
@@ -149,9 +159,7 @@ def cairo_rs_py_run(
         if isinstance(exception.inner_exc, syscall_utils.HandlerException):
             stark_exception = exception.inner_exc.stark_exception
             code = stark_exception.code
-            called_contract_address = (
-                exception.inner_exc.called_contract_address
-            )
+            called_contract_address = exception.inner_exc.called_contract_address
             message_prefix = (
                 f"Error in the called contract ({hex(called_contract_address)}):\n"
             )
@@ -187,7 +195,7 @@ def cairo_rs_py_run(
 
     # The arguments are touched by the OS and should not be counted as holes, mark them
     # as accessed.
-    # assert isinstance(args_ptr, RelocatableValue)  # Downcast.
+    assert isinstance(args_ptr, RelocatableValue)  # Downcast.
     runner.mark_as_accessed(address=args_ptr, size=len(entry_points_args))
 
     return runner, syscall_handler
@@ -271,7 +279,7 @@ def run_function_runner(
             apply_modulo_to_args=apply_modulo_to_args,
         )
     except (VmException, SecurityError, AssertionError) as ex:
-        if trace_on_failure:
+        if trace_on_failure:  # Unreachable code
             print(
                 f"""\
 Got {type(ex).__name__} exception during the execution of {func_name}:
@@ -368,7 +376,10 @@ def cairo_rs_py_allocate_segment(
     self.read_only_segments.append((segment_start, segment_end - segment_start))
     return segment_start
 
-def cairo_rs_py_get_runtime_type(cairo_type: CairoType) -> Union[Type[int], Type[RelocatableValue]]:
+
+def cairo_rs_py_get_runtime_type(
+    cairo_type: CairoType,
+) -> Union[Type[int], Type[RelocatableValue]]:
     """
     Given a CairoType returns the expected runtime type.
     """
@@ -379,6 +390,7 @@ def cairo_rs_py_get_runtime_type(cairo_type: CairoType) -> Union[Type[int], Type
         return RelocatableValue
 
     raise NotImplementedError(f"Unexpected type: {cairo_type.format()}.")
+
 
 def cairo_rs_py_get_os_segment_ptr_range(
     runner: CairoFunctionRunner, ptr_offset: int, os_context: List[MaybeRelocatable]
@@ -403,7 +415,7 @@ def cairo_rs_py_validate_segment_pointers(
     segment_base_ptr: MaybeRelocatable,
     segment_stop_ptr: MaybeRelocatable,
 ):
-    # assert isinstance(segment_base_ptr, RelocatableValue)
+    assert isinstance(segment_base_ptr, RelocatableValue)
     assert (
         segment_base_ptr.offset == 0
     ), f"Segment base pointer must be zero; got {segment_base_ptr.offset}."
@@ -498,7 +510,7 @@ def cairo_rs_py_monkeypatch():
     setattr(
         sys.modules["starkware.starknet.core.os.syscall_utils"],
         "get_runtime_type",
-        cairo_rs_py_get_runtime_type
+        cairo_rs_py_get_runtime_type,
     )
     setattr(
         sys.modules["starkware.starknet.business_logic.utils"],
