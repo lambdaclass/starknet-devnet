@@ -1,30 +1,17 @@
 # Patch starknet methods to use cairo_rs_py
 import sys
 from copy import copy
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Tuple,
-    Type,
-    Union,
-    cast,
-)
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, cast
 
 import cairo_rs_py
 from cairo_rs_py import RelocatableValue
 from crypto_cpp_py.cpp_bindings import cpp_hash
 from starkware.cairo.common.cairo_function_runner import CairoFunctionRunner
-from starkware.cairo.common.structs import CairoStructFactory, CairoStructProxy
 from starkware.cairo.lang.compiler.ast.cairo_types import (
     CairoType,
     TypeFelt,
     TypePointer,
 )
-from starkware.cairo.lang.compiler.identifier_definition import StructDefinition
 from starkware.cairo.lang.compiler.program import Program
 from starkware.cairo.lang.compiler.scoped_name import ScopedName
 from starkware.cairo.lang.vm.memory_segments import MemorySegmentManager
@@ -133,7 +120,7 @@ def cairo_rs_py_run(
         os_context,
         len(self.calldata),
         # Allocate and mark the segment as read-only (to mark every input array as read-only).
-        syscall_handler._allocate_segment(segments=runner, data=self.calldata),
+        syscall_handler._allocate_segment(segments=runner.segments, data=self.calldata),
     ]
 
     try:
@@ -357,24 +344,11 @@ def cairo_rs_py_validate_and_process_os_context(
     )
 
     segment_utils.validate_segment_pointers(
-        segments=runner,
+        segments=runner.segments,
         segment_base_ptr=syscall_base_ptr,
         segment_stop_ptr=syscall_stop_ptr,
     )
     syscall_handler.post_run(runner=runner, syscall_stop_ptr=syscall_stop_ptr)
-
-
-def cairo_rs_py_allocate_segment(
-    self, segments: MemorySegmentManager, data: Iterable[MaybeRelocatable]
-) -> RelocatableValue:
-    try:
-        segment_start = segments.add_segment()
-    except:
-        segment_start = segments.add()
-
-    segment_end = segments.write_arg(ptr=segment_start, arg=data)
-    self.read_only_segments.append((segment_start, segment_end - segment_start))
-    return segment_start
 
 
 def cairo_rs_py_get_runtime_type(
@@ -392,24 +366,6 @@ def cairo_rs_py_get_runtime_type(
     raise NotImplementedError(f"Unexpected type: {cairo_type.format()}.")
 
 
-def cairo_rs_py_get_os_segment_ptr_range(
-    runner: CairoFunctionRunner, ptr_offset: int, os_context: List[MaybeRelocatable]
-) -> Tuple[MaybeRelocatable, MaybeRelocatable]:
-    """
-    Returns the base and stop ptr of the OS-designated segment that starts at ptr_offset.
-    """
-    allowed_offsets = (SYSCALL_PTR_OFFSET,)
-    assert (
-        ptr_offset in allowed_offsets
-    ), f"Illegal OS ptr offset; must be one of: {allowed_offsets}."
-
-    # The returned values are os_context, retdata_size, retdata_ptr.
-    os_context_end = runner.get_ap() - 2
-    final_os_context_ptr = os_context_end - len(os_context)
-
-    return os_context[ptr_offset], runner.get(final_os_context_ptr + ptr_offset)
-
-
 def cairo_rs_py_validate_segment_pointers(
     segments: MemorySegmentManager,
     segment_base_ptr: MaybeRelocatable,
@@ -421,7 +377,7 @@ def cairo_rs_py_validate_segment_pointers(
     ), f"Segment base pointer must be zero; got {segment_base_ptr.offset}."
 
     expected_stop_ptr = segment_base_ptr + segments.get_segment_used_size(
-        index=segment_base_ptr.segment_index
+        segment_base_ptr.segment_index
     )
 
     stark_assert(
@@ -432,44 +388,6 @@ def cairo_rs_py_validate_segment_pointers(
             f"Expected: {expected_stop_ptr}, found: {segment_stop_ptr}."
         ),
     )
-
-
-def cairo_rs_py_get_return_values(runner: CairoFunctionRunner) -> List[int]:
-    """
-    Extracts the return values of a StarkNet contract function from the Cairo runner.
-    """
-    with wrap_with_stark_exception(
-        code=StarknetErrorCode.INVALID_RETURN_DATA,
-        message="Error extracting return data.",
-        logger=logger,
-        exception_types=[Exception],
-    ):
-        ret_data_size, ret_data_ptr = runner.get_return_values(2)
-        values = runner.memory.get_range(ret_data_ptr, ret_data_size)
-        values = runner.get_range(ret_data_ptr, ret_data_size)
-        stark_assert(
-            all(isinstance(value, int) for value in values),
-            code=StarknetErrorCode.INVALID_RETURN_DATA,
-            message="Return data expected to be non-relocatable.",
-        )
-    return cast(List[int], values)
-
-
-def cairo_rs_py_validate_read_only_segments(self, runner: CairoFunctionRunner):
-    """
-    Validates that there were no out of bounds writes to read-only segments and marks
-    them as accessed.
-    """
-    segments = runner
-
-    for segment_ptr, segment_size in self.read_only_segments:
-        used_size = segments.get_segment_used_size(index=segment_ptr.segment_index)
-        stark_assert(
-            used_size == segment_size,
-            code=StarknetErrorCode.SECURITY_ERROR,
-            message="Out of bounds write to a read-only segment.",
-        )
-        runner.mark_as_accessed(address=segment_ptr, size=segment_size)
 
 
 def cairo_rs_py_monkeypatch():
@@ -490,19 +408,6 @@ def cairo_rs_py_monkeypatch():
         cairo_rs_py_validate_and_process_os_context,
     )
     setattr(
-        BusinessLogicSysCallHandler, "_allocate_segment", cairo_rs_py_allocate_segment
-    )
-    setattr(
-        BusinessLogicSysCallHandler,
-        "validate_read_only_segments",
-        cairo_rs_py_validate_read_only_segments,
-    )
-    setattr(
-        sys.modules["starkware.starknet.core.os.syscall_utils"],
-        "get_os_segment_ptr_range",
-        cairo_rs_py_get_os_segment_ptr_range,
-    )
-    setattr(
         sys.modules["starkware.starknet.core.os.segment_utils"],
         "validate_segment_pointers",
         cairo_rs_py_validate_segment_pointers,
@@ -511,9 +416,4 @@ def cairo_rs_py_monkeypatch():
         sys.modules["starkware.starknet.core.os.syscall_utils"],
         "get_runtime_type",
         cairo_rs_py_get_runtime_type,
-    )
-    setattr(
-        sys.modules["starkware.starknet.business_logic.utils"],
-        "get_return_values",
-        cairo_rs_py_get_return_values,
     )
