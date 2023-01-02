@@ -1,11 +1,9 @@
 # Patch starknet methods to use cairo_rs_py
 import sys
-from copy import copy
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, cast
 
 import cairo_rs_py
 from cairo_rs_py import RelocatableValue
-from crypto_cpp_py.cpp_bindings import cpp_hash
 from starkware.cairo.common.cairo_function_runner import CairoFunctionRunner
 from starkware.cairo.lang.compiler.ast.cairo_types import (
     CairoType,
@@ -18,31 +16,26 @@ from starkware.cairo.lang.vm.memory_segments import MemorySegmentManager
 from starkware.cairo.lang.vm.relocatable import MaybeRelocatable
 from starkware.cairo.lang.vm.utils import ResourcesError
 from starkware.cairo.lang.vm.vm_exceptions import (
-    HintException,
     SecurityError,
     VmException,
     VmExceptionBase,
 )
-from starkware.crypto.signature.fast_pedersen_hash import pedersen_hash
 from starkware.python.utils import safe_zip
 from starkware.starknet.business_logic.execution.execute_entry_point import (
     FAULTY_CLASS_HASH,
     ExecuteEntryPoint,
 )
 from starkware.starknet.business_logic.execution.objects import (
-    ResourcesMapping,
     TransactionExecutionContext,
 )
 from starkware.starknet.business_logic.fact_state.state import ExecutionResourcesManager
-from starkware.starknet.business_logic.state.state_api import State, SyncState
-from starkware.starknet.business_logic.transaction import fee
+from starkware.starknet.business_logic.state.state_api import SyncState
 from starkware.starknet.business_logic.utils import validate_contract_deployed
 from starkware.starknet.core.os import os_utils, segment_utils, syscall_utils
 from starkware.starknet.core.os.class_hash import (
     get_contract_class_struct,
     load_program,
 )
-from starkware.starknet.core.os.syscall_utils import BusinessLogicSysCallHandler
 from starkware.starknet.definitions.error_codes import StarknetErrorCode
 from starkware.starknet.definitions.general_config import StarknetGeneralConfig
 from starkware.starknet.public import abi as starknet_abi
