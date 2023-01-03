@@ -130,7 +130,7 @@ def cairo_rs_py_run(
                 "__usort_max_size": 2**20,
                 "__chained_ec_op_max_len": 1000,
             },
-            # run_resources=tx_execution_context.run_resources,
+            run_resources=tx_execution_context.run_resources,
             verify_secure=True,
         )
     except VmException as exception:
