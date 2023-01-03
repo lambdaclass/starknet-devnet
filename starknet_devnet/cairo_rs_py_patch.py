@@ -11,7 +11,7 @@ import sys
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, cast
 
 import cairo_rs_py
-from cairo_rs_py import RelocatableValue
+from cairo_rs_py import RelocatableValue # pylint: disable = no-name-in-module
 from starkware.cairo.common.cairo_function_runner import CairoFunctionRunner
 from starkware.cairo.common.structs import CairoStructFactory
 from starkware.cairo.lang.compiler.ast.cairo_types import (
