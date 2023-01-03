@@ -11,6 +11,7 @@ import sys
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, cast
 
 import cairo_rs_py
+from cairo_rs_py import RelocatableValue
 from starkware.cairo.common.cairo_function_runner import CairoFunctionRunner
 from starkware.cairo.common.structs import CairoStructFactory
 from starkware.cairo.lang.compiler.ast.cairo_types import (
@@ -21,7 +22,7 @@ from starkware.cairo.lang.compiler.ast.cairo_types import (
 from starkware.cairo.lang.compiler.program import Program
 from starkware.cairo.lang.compiler.scoped_name import ScopedName
 from starkware.cairo.lang.vm.memory_segments import MemorySegmentManager
-from starkware.cairo.lang.vm.relocatable import MaybeRelocatable, RelocatableValue
+from starkware.cairo.lang.vm.relocatable import MaybeRelocatable
 from starkware.cairo.lang.vm.utils import ResourcesError
 from starkware.cairo.lang.vm.vm_exceptions import (
     SecurityError,
