@@ -11,7 +11,7 @@ import sys
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, cast
 
 import cairo_rs_py
-from cairo_rs_py import RelocatableValue # pylint: disable = no-name-in-module
+from cairo_rs_py import RelocatableValue  # pylint: disable = no-name-in-module
 from starkware.cairo.common.cairo_function_runner import CairoFunctionRunner
 from starkware.cairo.common.structs import CairoStructFactory
 from starkware.cairo.lang.compiler.ast.cairo_types import (
@@ -58,6 +58,7 @@ from starkware.starkware_utils.error_handling import (
 )
 
 logger = logging.getLogger(__name__)
+
 
 def cairo_rs_py_run(
     self,
@@ -370,6 +371,10 @@ def cairo_rs_py_get_runtime_type(
     raise NotImplementedError(f"Unexpected type: {cairo_type.format()}.")
 
 
+def handler_exception__str__(self) -> str:
+    return self.stark_exception.message
+
+
 def cairo_rs_py_validate_segment_pointers(
     segments: MemorySegmentManager,
     segment_base_ptr: MaybeRelocatable,
@@ -421,3 +426,4 @@ def cairo_rs_py_monkeypatch():
         "get_runtime_type",
         cairo_rs_py_get_runtime_type,
     )
+    setattr(syscall_utils.HandlerException, "__str__", handler_exception__str__)
