@@ -246,9 +246,10 @@ def cairo_rs_py_compute_class_hash_inner(
     )
 
     runner = cairo_rs_py.CairoRunner(  # pylint: disable=no-member
-        program=program.dumps()
+        program=program.dumps(),
+        entrypoint=None
     )
-    runner.initialize_function_runner()
+    runner.initialize_function_runner(add_segment_arena_builtin=False)
     poseidon_ptr = runner.get_poseidon_builtin_base()
     range_check_ptr = runner.get_range_check_builtin_base()
 
