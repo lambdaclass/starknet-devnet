@@ -5,7 +5,6 @@
 # pylint: disable=protected-access
 # pylint: disable=too-many-locals
 
-# TMP: rust vm
 import dataclasses
 import logging
 import sys
