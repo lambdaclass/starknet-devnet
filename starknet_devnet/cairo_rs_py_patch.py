@@ -62,78 +62,25 @@ logger = logging.getLogger(__name__)
 
 def cairo_rs_py_run(
     self,
-    state: SyncState,
-    resources_manager: ExecutionResourcesManager,
-    general_config: StarknetGeneralConfig,
-    tx_execution_context: TransactionExecutionContext,
-) -> Tuple[CairoFunctionRunner, syscall_utils.BusinessLogicSysCallHandler]:
+    runner: CairoFunctionRunner,
+    entry_point_offset: int,
+    entry_point_args: EntryPointArgs,
+    hint_locals: Dict[str, Any],
+    run_resources: RunResources,
+    allow_tmp_segments: bool,
+    program_segment_size: Optional[int] = None,
+):
     """
-    Runs the selected entry point with the given calldata in the code of the contract deployed
-    at self.code_address.
-    The execution is done in the context (e.g., storage) of the contract at
-    self.contract_address.
-    Returns the corresponding CairoFunctionRunner and BusinessLogicSysCallHandler in order to
-    retrieve the execution information.
+    Runs the runner from the entrypoint offset with the given arguments.
+
+    Wraps VM exceptions with StarkException.
     """
-    # Prepare input for Cairo function runner.
-    class_hash = self._get_code_class_hash(state=state)
-
-    # Hack to prevent version 0 attack on argent accounts.
-    if (tx_execution_context.version == 0) and (class_hash == FAULTY_CLASS_HASH):
-        raise StarkException(
-            code=StarknetErrorCode.TRANSACTION_FAILED, message="Fraud attempt blocked."
-        )
-
-    contract_class = state.get_contract_class(class_hash=class_hash)
-    contract_class.validate()
-
-    entry_point = self._get_selected_entry_point(
-        contract_class=contract_class, class_hash=class_hash
-    )
-
-    # Run the specified contract entry point with given calldata.
-    with wrap_with_stark_exception(code=StarknetErrorCode.SECURITY_ERROR):
-        runner = cairo_rs_py.CairoRunner(  # pylint: disable=no-member
-            program=contract_class.program.dumps(),
-            entrypoint=None,
-            layout="all",
-            proof_mode=False,
-        )
-        runner.initialize_function_runner()
-    os_context = os_utils.prepare_os_context(runner=runner)
-
-    validate_contract_deployed(state=state, contract_address=self.contract_address)
-
-    initial_syscall_ptr = cast(
-        RelocatableValue, os_context[starknet_abi.SYSCALL_PTR_OFFSET]
-    )
-    syscall_handler = syscall_utils.BusinessLogicSysCallHandler(
-        execute_entry_point_cls=ExecuteEntryPoint,
-        tx_execution_context=tx_execution_context,
-        state=state,
-        resources_manager=resources_manager,
-        caller_address=self.caller_address,
-        contract_address=self.contract_address,
-        general_config=general_config,
-        initial_syscall_ptr=initial_syscall_ptr,
-    )
-
-    # Positional arguments are passed to *args in the 'run_from_entrypoint' function.
-    entry_points_args = [
-        self.entry_point_selector,
-        os_context,
-        len(self.calldata),
-        # Allocate and mark the segment as read-only (to mark every input array as read-only).
-        syscall_handler._allocate_segment(segments=runner.segments, data=self.calldata),
-    ]
 
     try:
         runner.run_from_entrypoint(
-            entry_point.offset,
-            entry_points_args,
-            hint_locals={
-                "syscall_handler": syscall_handler,
-            },
+            entry_point_offset,
+            *entry_point_args,
+            hint_locals=hint_locals,
             static_locals={
                 "__find_element_max_size": 2**20,
                 "__squash_dict_max_size": 2**20,
@@ -141,7 +88,7 @@ def cairo_rs_py_run(
                 "__usort_max_size": 2**20,
                 "__chained_ec_op_max_len": 1000,
             },
-            run_resources=tx_execution_context.run_resources,
+            run_resources=run_resources,
             verify_secure=True,
         )
     except VmException as exception:
@@ -174,22 +121,13 @@ def cairo_rs_py_run(
             message="Got an unexpected exception during the execution of the transaction.",
         ) from exception
 
-    # Complete handler validations.
-    os_utils.validate_and_process_os_context(
-        runner=runner,
-        syscall_handler=syscall_handler,
-        initial_os_context=os_context,
-    )
-
     # When execution starts the stack holds entry_points_args + [ret_fp, ret_pc].
-    args_ptr = runner.initial_fp - (len(entry_points_args) + 2)
+    args_ptr = runner.initial_fp - (len(entry_point_args) + 2)
 
     # The arguments are touched by the OS and should not be counted as holes, mark them
     # as accessed.
     assert isinstance(args_ptr, RelocatableValue)  # Downcast.
-    runner.mark_as_accessed(address=args_ptr, size=len(entry_points_args))
-
-    return runner, syscall_handler
+    runner.mark_as_accessed(address=args_ptr, size=len(entry_point_args))
 
 
 def cairo_rs_py_compute_class_hash_inner(
@@ -201,7 +139,7 @@ def cairo_rs_py_compute_class_hash_inner(
     )
 
     runner = cairo_rs_py.CairoRunner(  # pylint: disable=no-member
-        program=program.dumps(), entrypoint=None, layout="all", proof_mode=False
+        program=program.dumps()
     )
     runner.initialize_function_runner()
     poseidon_ptr = runner.get_poseidon_builtin_base()
@@ -211,7 +149,7 @@ def cairo_rs_py_compute_class_hash_inner(
         runner,
         program,
         "starkware.starknet.core.os.contract_class.class_hash",
-        poseidon_ptr = poseidon_ptr,
+        poseidon_ptr=poseidon_ptr,
         range_check_ptr=range_check_ptr,
         contract_class=contract_class_struct,
         use_full_name=True,
