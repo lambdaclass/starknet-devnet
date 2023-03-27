@@ -256,7 +256,7 @@ def cairo_rs_py_compute_class_hash_inner(
     run_function_runner(
         runner,
         program,
-        "starkware.starknet.core.os.contract_class.class_hash",
+        "starkware.starknet.core.os.contract_class.contract_class.class_hash",
         poseidon_ptr=poseidon_ptr,
         range_check_ptr=range_check_ptr,
         contract_class=contract_class_struct,
