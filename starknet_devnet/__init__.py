@@ -73,7 +73,7 @@ _patch_copy()
 
 def _patch_cairo_vm():
     """Apply cairo-rs-py monkey patch"""
-    # TMP: rust vm
+
     from starknet_devnet.cairo_rs_py_patch import cairo_rs_py_monkeypatch
 
     cairo_rs_py_monkeypatch()

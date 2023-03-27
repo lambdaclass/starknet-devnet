@@ -420,7 +420,7 @@ def cairo_rs_py_monkeypatch():
     setattr(ExecuteEntryPoint, "_run", cairo_rs_py_run)
     setattr(
         sys.modules["starkware.starknet.core.os.contract_class.class_hash"],
-        "class_hash_inner",
+        "_compute_class_hash_inner",
         cairo_rs_py_compute_class_hash_inner,
     )
     setattr(
