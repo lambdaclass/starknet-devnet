@@ -6,12 +6,12 @@
 # pylint: disable=too-many-locals
 
 # TMP: rust vm
+import dataclasses
 import logging
 import sys
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, cast
 
 import cairo_rs_py
-from cairo_rs_py import RelocatableValue  # pylint: disable = no-name-in-module
 from starkware.cairo.common.cairo_function_runner import CairoFunctionRunner
 from starkware.cairo.common.structs import CairoStructFactory
 from starkware.cairo.lang.compiler.ast.cairo_types import (
@@ -22,34 +22,41 @@ from starkware.cairo.lang.compiler.ast.cairo_types import (
 from starkware.cairo.lang.compiler.program import Program
 from starkware.cairo.lang.compiler.scoped_name import ScopedName
 from starkware.cairo.lang.vm.memory_segments import MemorySegmentManager
-from starkware.cairo.lang.vm.relocatable import MaybeRelocatable
+from starkware.cairo.lang.vm.relocatable import MaybeRelocatable, RelocatableValue
 from starkware.cairo.lang.vm.utils import ResourcesError, RunResources
 from starkware.cairo.lang.vm.vm_exceptions import (
     SecurityError,
     VmException,
     VmExceptionBase,
 )
-from starkware.python.utils import safe_zip
+from starkware.python.utils import as_non_optional, safe_zip
 from starkware.starknet.business_logic.execution.execute_entry_point import (
     EntryPointArgs,
     ExecuteEntryPoint,
+    ExecutionResourcesManager,
 )
 from starkware.starknet.business_logic.execution.objects import (
+    CallInfo,
     TransactionExecutionContext,
 )
-from starkware.starknet.business_logic.fact_state.state import ExecutionResourcesManager
 from starkware.starknet.business_logic.state.state_api import SyncState
-from starkware.starknet.business_logic.utils import validate_contract_deployed
+from starkware.starknet.business_logic.utils import get_call_result
 from starkware.starknet.core.os import os_utils, segment_utils, syscall_utils
 from starkware.starknet.core.os.contract_class.class_hash import (
     get_contract_class_struct,
     load_contract_class_cairo_program,
 )
+from starkware.starknet.core.os.syscall_handler import BusinessLogicSyscallHandler
 from starkware.starknet.definitions.error_codes import StarknetErrorCode
-from starkware.starknet.definitions.general_config import StarknetGeneralConfig
+from starkware.starknet.definitions.general_config import (
+    STARKNET_LAYOUT_INSTANCE,
+    StarknetGeneralConfig,
+)
 from starkware.starknet.public import abi as starknet_abi
-from starkware.starknet.public.abi import SYSCALL_PTR_OFFSET
-from starkware.starknet.services.api.contract_class.contract_class import ContractClass
+from starkware.starknet.services.api.contract_class.contract_class import (
+    CompiledClass,
+    ContractClass,
+)
 from starkware.starkware_utils.error_handling import (
     ErrorCode,
     StarkException,
@@ -72,12 +79,6 @@ def cairo_rs_py_execute(
 ) -> CallInfo:
     # Fix the current resources usage, in order to calculate the usage of this run at the end.
     previous_cairo_usage = resources_manager.cairo_usage
-
-    # Create a dummy layout.
-    layout = dataclasses.replace(
-        STARKNET_LAYOUT_INSTANCE,
-        builtins={**STARKNET_LAYOUT_INSTANCE.builtins, "segment_arena": {}},
-    )
 
     # Prepare runner.
     entry_point = self._get_selected_entry_point(
@@ -372,36 +373,6 @@ def cairo_rs_py_prepare_os_context(
     return os_context
 
 
-def cairo_rs_py_validate_and_process_os_context(
-    runner: CairoFunctionRunner,
-    syscall_handler: syscall_utils.BusinessLogicSysCallHandler,
-    initial_os_context: List[MaybeRelocatable],
-):
-    """
-    Validates and processes an OS context that was returned by a transaction.
-    Returns the syscall processor object containing the accumulated syscall information.
-    """
-    os_context_end = runner.get_ap() - 2
-    stack_ptr = os_context_end
-    # The returned values are os_context, retdata_size, retdata_ptr.
-    stack_ptr = runner.get_builtins_final_stack(stack_ptr)
-
-    final_os_context_ptr = stack_ptr - 1
-    assert final_os_context_ptr + len(initial_os_context) == os_context_end
-
-    # Validate system calls.
-    syscall_base_ptr, syscall_stop_ptr = segment_utils.get_os_segment_ptr_range(
-        runner=runner, ptr_offset=SYSCALL_PTR_OFFSET, os_context=initial_os_context
-    )
-
-    segment_utils.validate_segment_pointers(
-        segments=runner.segments,
-        segment_base_ptr=syscall_base_ptr,
-        segment_stop_ptr=syscall_stop_ptr,
-    )
-    syscall_handler.post_run(runner=runner, syscall_stop_ptr=syscall_stop_ptr)
-
-
 def cairo_rs_py_get_runtime_type(
     cairo_type: CairoType,
 ) -> Union[Type[int], Type[RelocatableValue]]:
@@ -449,7 +420,7 @@ def cairo_rs_py_monkeypatch():
     setattr(ExecuteEntryPoint, "_execute", cairo_rs_py_execute)
     setattr(ExecuteEntryPoint, "_run", cairo_rs_py_run)
     setattr(
-        sys.modules["starkware.starknet.core.os.class_hash"],
+        sys.modules["starkware.starknet.core.os.contract_class.class_hash"],
         "class_hash_inner",
         cairo_rs_py_compute_class_hash_inner,
     )
@@ -457,11 +428,6 @@ def cairo_rs_py_monkeypatch():
         sys.modules["starkware.starknet.core.os.os_utils"],
         "prepare_os_context",
         cairo_rs_py_prepare_os_context,
-    )
-    setattr(
-        sys.modules["starkware.starknet.core.os.os_utils"],
-        "validate_and_process_os_context",
-        cairo_rs_py_validate_and_process_os_context,
     )
     setattr(
         sys.modules["starkware.starknet.core.os.segment_utils"],
