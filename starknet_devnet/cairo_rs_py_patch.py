@@ -105,9 +105,9 @@ def cairo_rs_py_execute_version0_class(
         )
 
         # Prepare all arguments.
-        entry_point_args: EntryPointArgs = [
+        entry_point_args = [
             self.entry_point_selector,
-            implicit_args,
+            *implicit_args,
             len(self.calldata),
             # Allocate and mark the segment as read-only (to mark every input array as read-only).
             syscall_handler._allocate_segment(data=self.calldata),
@@ -210,13 +210,12 @@ def cairo_rs_py_execute(
     # Allocate and mark the segment as read-only (to mark every input array as read-only).
     calldata_start = syscall_handler.allocate_segment(data=self.calldata)
     calldata_end = calldata_start + len(self.calldata)
-    entry_point_args: EntryPointArgs = [
+    entry_point_args = [
         # Note that unlike old classes, implicit arguments appear flat in the stack.
         *implicit_args,
         calldata_start,
         calldata_end,
     ]
-
     # Run.
     self._run(
         runner=runner,
@@ -257,22 +256,22 @@ def cairo_rs_py_run(
     self,
     runner: CairoFunctionRunner,
     entry_point_offset: int,
-    entry_point_args: EntryPointArgs,
+    entry_point_args,
     hint_locals: Dict[str, Any],
     run_resources: RunResources,
     allow_tmp_segments: bool,
     program_segment_size: Optional[int] = None,
 ):
+
     """
     Runs the runner from the entrypoint offset with the given arguments.
 
     Wraps VM exceptions with StarkException.
     """
-
     try:
         runner.run_from_entrypoint(
             entry_point_offset,
-            *entry_point_args,
+            non_typed_args=entry_point_args,
             hint_locals=hint_locals,
             static_locals={
                 "__find_element_max_size": 2**20,
@@ -396,8 +395,7 @@ def run_function_runner(
     try:
         runner.run_from_entrypoint(
             entrypoint,
-            all_args,
-            typed_args=True,
+            typed_args=all_args,
             hint_locals=hint_locals,
             static_locals=static_locals,
             verify_secure=verify_secure,
@@ -452,7 +450,7 @@ def cairo_rs_py_prepare_builtins(runner: CairoFunctionRunner) -> List[MaybeReloc
     """
     Initializes and returns the builtin segments.
     """
-    return runner.get_builtins_initial_stack()
+    return runner.get_program_builtins_initial_stack()
 
 
 def cairo_rs_py_get_runtime_type(
