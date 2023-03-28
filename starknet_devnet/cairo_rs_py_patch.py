@@ -363,15 +363,11 @@ Got {type(ex).__name__} exception during the execution of {func_name}:
 
     return implicit_retvals, explicit_retvals
 
-
-def cairo_rs_py_prepare_os_context(
-    runner: CairoFunctionRunner,
-) -> List[MaybeRelocatable]:
-    syscall_segment = runner.add_segment()
-    os_context: List[MaybeRelocatable] = [syscall_segment]
-    os_context.extend(runner.get_program_builtins_initial_stack())
-
-    return os_context
+def cairo_rs_py_prepare_builtins(runner: CairoFunctionRunner) -> List[MaybeRelocatable]:
+    """
+    Initializes and returns the builtin segments.
+    """
+    return runner.get_builtins_initial_stack()
 
 
 def cairo_rs_py_get_runtime_type(
@@ -427,8 +423,8 @@ def cairo_rs_py_monkeypatch():
     )
     setattr(
         sys.modules["starkware.starknet.core.os.os_utils"],
-        "prepare_os_context",
-        cairo_rs_py_prepare_os_context,
+        "prepare_builtins",
+        cairo_rs_py_prepare_builtins,
     )
     setattr(
         sys.modules["starkware.starknet.core.os.segment_utils"],
