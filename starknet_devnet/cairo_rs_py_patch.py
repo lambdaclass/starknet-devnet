@@ -5,12 +5,11 @@
 # pylint: disable=protected-access
 # pylint: disable=too-many-locals
 
-import dataclasses
 import logging
 import sys
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, cast
+from typing import Any, Dict, List, Optional, Tuple, Type, Union, cast
 
-import cairo_rs_py
+from cairo_rs_py import CairoRunner, RelocatableValue
 from starkware.cairo.common.cairo_function_runner import CairoFunctionRunner
 from starkware.cairo.common.structs import CairoStructFactory
 from starkware.cairo.lang.compiler.ast.cairo_types import (
@@ -25,7 +24,7 @@ from starkware.starknet.core.os.contract_class.compiled_class_hash_utils import 
 from starkware.cairo.lang.compiler.program import Program
 from starkware.cairo.lang.compiler.scoped_name import ScopedName
 from starkware.cairo.lang.vm.memory_segments import MemorySegmentManager
-from starkware.cairo.lang.vm.relocatable import MaybeRelocatable, RelocatableValue
+from starkware.cairo.lang.vm.relocatable import MaybeRelocatable
 from starkware.cairo.lang.vm.utils import ResourcesError, RunResources
 from starkware.cairo.lang.vm.vm_exceptions import (
     SecurityError,
@@ -34,7 +33,6 @@ from starkware.cairo.lang.vm.vm_exceptions import (
 )
 from starkware.python.utils import as_non_optional, safe_zip
 from starkware.starknet.business_logic.execution.execute_entry_point import (
-    EntryPointArgs,
     ExecuteEntryPoint,
     ExecutionResourcesManager,
 )
@@ -52,7 +50,6 @@ from starkware.starknet.core.os.contract_class.class_hash import (
 from starkware.starknet.core.os.syscall_handler import BusinessLogicSyscallHandler, DeprecatedBlSyscallHandler
 from starkware.starknet.definitions.error_codes import StarknetErrorCode
 from starkware.starknet.definitions.general_config import (
-    STARKNET_LAYOUT_INSTANCE,
     StarknetGeneralConfig,
 )
 from starkware.starknet.public import abi as starknet_abi
@@ -84,7 +81,7 @@ def cairo_rs_py_execute_version0_class(
 
         # Prepare runner.
         with wrap_with_stark_exception(code=StarknetErrorCode.SECURITY_ERROR):
-            runner = cairo_rs_py.CairoRunner(
+            runner = CairoRunner(
                 program=compiled_class.program.dumps(), entrypoint=None
             )
             runner.initialize_function_runner(add_segment_arena_builtin=False)
@@ -176,7 +173,7 @@ def cairo_rs_py_execute(
         entrypoint_builtins=as_non_optional(entry_point.builtins)
     )
     with wrap_with_stark_exception(code=StarknetErrorCode.SECURITY_ERROR):
-        runner = cairo_rs_py.CairoRunner(  # pylint: disable=no-member
+        runner = CairoRunner(  # pylint: disable=no-member
             program=program.dumps(),
             entrypoint=None
         )
@@ -334,7 +331,7 @@ def cairo_rs_py_compute_class_hash_inner(
         identifiers=program.identifiers, contract_class=contract_class
     )
 
-    runner = cairo_rs_py.CairoRunner(  # pylint: disable=no-member
+    runner = CairoRunner(  # pylint: disable=no-member
         program=program.dumps(),
         entrypoint=None
     )
@@ -360,7 +357,7 @@ def cairo_rs_py_compute_compiled_class_hash_inner(compiled_class: CompiledClass)
     compiled_class_struct = get_compiled_class_struct(
         identifiers=program.identifiers, compiled_class=compiled_class
     )
-    runner = cairo_rs_py.CairoRunner(  # pylint: disable=no-member
+    runner = CairoRunner(  # pylint: disable=no-member
         program=program.dumps(),
         entrypoint=None
     )
