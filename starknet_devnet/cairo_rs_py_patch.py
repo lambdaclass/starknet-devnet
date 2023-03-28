@@ -16,10 +16,6 @@ from starkware.cairo.lang.compiler.ast.cairo_types import (
     TypeFelt,
     TypePointer,
 )
-from starkware.starknet.core.os.contract_class.compiled_class_hash_utils import (
-    get_compiled_class_struct,
-    load_compiled_class_cairo_program,
-)
 from starkware.cairo.lang.compiler.program import Program
 from starkware.cairo.lang.compiler.scoped_name import ScopedName
 from starkware.cairo.lang.vm.memory_segments import MemorySegmentManager
@@ -40,18 +36,27 @@ from starkware.starknet.business_logic.execution.objects import (
     TransactionExecutionContext,
 )
 from starkware.starknet.business_logic.state.state_api import SyncState
-from starkware.starknet.business_logic.utils import get_call_result, get_call_result_for_version0_class
+from starkware.starknet.business_logic.utils import (
+    get_call_result,
+    get_call_result_for_version0_class,
+)
 from starkware.starknet.core.os import os_utils, segment_utils, syscall_utils
 from starkware.starknet.core.os.contract_class.class_hash import (
     get_contract_class_struct,
     load_contract_class_cairo_program,
 )
-from starkware.starknet.core.os.syscall_handler import BusinessLogicSyscallHandler, DeprecatedBlSyscallHandler
-from starkware.starknet.definitions.error_codes import StarknetErrorCode
-from starkware.starknet.definitions.general_config import (
-    StarknetGeneralConfig,
+from starkware.starknet.core.os.contract_class.compiled_class_hash_utils import (
+    get_compiled_class_struct,
+    load_compiled_class_cairo_program,
 )
+from starkware.starknet.core.os.syscall_handler import (
+    BusinessLogicSyscallHandler,
+    DeprecatedBlSyscallHandler,
+)
+from starkware.starknet.definitions.error_codes import StarknetErrorCode
+from starkware.starknet.definitions.general_config import StarknetGeneralConfig
 from starkware.starknet.public import abi as starknet_abi
+from starkware.starknet.public.abi import SYSCALL_PTR_OFFSET_IN_VERSION0
 from starkware.starknet.services.api.contract_class.contract_class import (
     CompiledClass,
     ContractClass,
@@ -66,89 +71,88 @@ from starkware.starkware_utils.error_handling import (
 
 logger = logging.getLogger(__name__)
 
+
 def cairo_rs_py_execute_version0_class(
-        self,
-        state: SyncState,
-        resources_manager: ExecutionResourcesManager,
-        tx_execution_context: TransactionExecutionContext,
-        class_hash: int,
-        compiled_class: DeprecatedCompiledClass,
-        general_config: StarknetGeneralConfig,
-    ) -> CallInfo:
-        # Fix the current resources usage, in order to calculate the usage of this run at the end.
-        previous_cairo_usage = resources_manager.cairo_usage
+    self,
+    state: SyncState,
+    resources_manager: ExecutionResourcesManager,
+    tx_execution_context: TransactionExecutionContext,
+    class_hash: int,
+    compiled_class: DeprecatedCompiledClass,
+    general_config: StarknetGeneralConfig,
+) -> CallInfo:
+    # Fix the current resources usage, in order to calculate the usage of this run at the end.
+    previous_cairo_usage = resources_manager.cairo_usage
 
-        # Prepare runner.
-        with wrap_with_stark_exception(code=StarknetErrorCode.SECURITY_ERROR):
-            runner = CairoRunner(
-                program=compiled_class.program.dumps(), entrypoint=None
-            )
-            runner.initialize_function_runner(add_segment_arena_builtin=False)
+    # Prepare runner.
+    with wrap_with_stark_exception(code=StarknetErrorCode.SECURITY_ERROR):
+        runner = CairoRunner(program=compiled_class.program.dumps(), entrypoint=None)
+        runner.initialize_function_runner(add_segment_arena_builtin=False)
 
-        # Prepare implicit arguments.
-        implicit_args = os_utils.prepare_os_implicit_args_for_version0_class(runner=runner)
+    # Prepare implicit arguments.
+    implicit_args = os_utils.prepare_os_implicit_args_for_version0_class(runner=runner)
 
-        # Prepare syscall handler.
-        initial_syscall_ptr = cast(
-            RelocatableValue, implicit_args[starknet_abi.SYSCALL_PTR_OFFSET_IN_VERSION0]
-        )
-        syscall_handler = DeprecatedBlSyscallHandler(
-            execute_entry_point_cls=ExecuteEntryPoint,
-            tx_execution_context=tx_execution_context,
-            state=state,
-            resources_manager=resources_manager,
-            caller_address=self.caller_address,
-            contract_address=self.contract_address,
-            general_config=general_config,
-            initial_syscall_ptr=initial_syscall_ptr,
-            segments=runner.segments,
-        )
+    # Prepare syscall handler.
+    initial_syscall_ptr = cast(
+        RelocatableValue, implicit_args[starknet_abi.SYSCALL_PTR_OFFSET_IN_VERSION0]
+    )
+    syscall_handler = DeprecatedBlSyscallHandler(
+        execute_entry_point_cls=ExecuteEntryPoint,
+        tx_execution_context=tx_execution_context,
+        state=state,
+        resources_manager=resources_manager,
+        caller_address=self.caller_address,
+        contract_address=self.contract_address,
+        general_config=general_config,
+        initial_syscall_ptr=initial_syscall_ptr,
+        segments=runner.segments,
+    )
 
-        # Prepare all arguments.
-        entry_point_args = [
-            self.entry_point_selector,
-            implicit_args,
-            len(self.calldata),
-            # Allocate and mark the segment as read-only (to mark every input array as read-only).
-            syscall_handler._allocate_segment(data=self.calldata),
-        ]
+    # Prepare all arguments.
+    entry_point_args = [
+        self.entry_point_selector,
+        implicit_args,
+        len(self.calldata),
+        # Allocate and mark the segment as read-only (to mark every input array as read-only).
+        syscall_handler._allocate_segment(data=self.calldata),
+    ]
 
-        # Get offset to run from.
-        entry_point = self._get_selected_entry_point(
-            compiled_class=compiled_class, class_hash=class_hash
-        )
-        entry_point_offset = entry_point.offset
+    # Get offset to run from.
+    entry_point = self._get_selected_entry_point(
+        compiled_class=compiled_class, class_hash=class_hash
+    )
+    entry_point_offset = entry_point.offset
 
-        # Run.
-        self._run(
-            runner=runner,
-            entry_point_offset=entry_point_offset,
-            entry_point_args=entry_point_args,
-            hint_locals={"syscall_handler": syscall_handler},
-            run_resources=tx_execution_context.run_resources,
-            allow_tmp_segments=False,
-        )
+    # Run.
+    self._run(
+        runner=runner,
+        entry_point_offset=entry_point_offset,
+        entry_point_args=entry_point_args,
+        hint_locals={"syscall_handler": syscall_handler},
+        run_resources=tx_execution_context.run_resources,
+        allow_tmp_segments=False,
+    )
 
-        # Complete validations.
-        os_utils.validate_and_process_os_context_for_version0_class(
-            runner=runner,
-            syscall_handler=syscall_handler,
-            initial_os_context=implicit_args,
-        )
+    # Complete validations.
+    os_utils.validate_and_process_os_context_for_version0_class(
+        runner=runner,
+        syscall_handler=syscall_handler,
+        initial_os_context=implicit_args,
+    )
 
-        # Update resources usage (for the bouncer and fee calculation).
-        resources_manager.cairo_usage += runner.get_execution_resources()
+    # Update resources usage (for the bouncer and fee calculation).
+    resources_manager.cairo_usage += runner.get_execution_resources()
 
-        # Build and return the call info.
-        return self._build_call_info(
-            storage=syscall_handler.starknet_storage,
-            events=syscall_handler.events,
-            l2_to_l1_messages=syscall_handler.l2_to_l1_messages,
-            internal_calls=syscall_handler.internal_calls,
-            execution_resources=resources_manager.cairo_usage - previous_cairo_usage,
-            result=get_call_result_for_version0_class(runner=runner),
-            class_hash=class_hash,
-        )
+    # Build and return the call info.
+    return self._build_call_info(
+        storage=syscall_handler.starknet_storage,
+        events=syscall_handler.events,
+        l2_to_l1_messages=syscall_handler.l2_to_l1_messages,
+        internal_calls=syscall_handler.internal_calls,
+        execution_resources=resources_manager.cairo_usage - previous_cairo_usage,
+        result=get_call_result_for_version0_class(runner=runner),
+        class_hash=class_hash,
+    )
 
 
 def cairo_rs_py_execute(
@@ -173,8 +177,7 @@ def cairo_rs_py_execute(
     )
     with wrap_with_stark_exception(code=StarknetErrorCode.SECURITY_ERROR):
         runner = CairoRunner(  # pylint: disable=no-member
-            program=program.dumps(),
-            entrypoint=None
+            program=program.dumps(), entrypoint=None
         )
     runner.initialize_function_runner(add_segment_arena_builtin=True)
 
@@ -330,8 +333,7 @@ def cairo_rs_py_compute_class_hash_inner(
     )
 
     runner = CairoRunner(  # pylint: disable=no-member
-        program=program.dumps(),
-        entrypoint=None
+        program=program.dumps(), entrypoint=None
     )
     runner.initialize_function_runner(add_segment_arena_builtin=False)
     poseidon_ptr = runner.get_poseidon_builtin_base()
@@ -350,14 +352,14 @@ def cairo_rs_py_compute_class_hash_inner(
     _, class_hash = runner.get_return_values(2)
     return class_hash
 
+
 def cairo_rs_py_compute_compiled_class_hash_inner(compiled_class: CompiledClass) -> int:
     program = load_compiled_class_cairo_program()
     compiled_class_struct = get_compiled_class_struct(
         identifiers=program.identifiers, compiled_class=compiled_class
     )
     runner = CairoRunner(  # pylint: disable=no-member
-        program=program.dumps(),
-        entrypoint=None
+        program=program.dumps(), entrypoint=None
     )
     runner.initialize_function_runner(add_segment_arena_builtin=False)
     poseidon_ptr = runner.get_poseidon_builtin_base()
@@ -365,7 +367,7 @@ def cairo_rs_py_compute_compiled_class_hash_inner(compiled_class: CompiledClass)
     run_function_runner(
         runner,
         program,
-         "starkware.starknet.core.os.contract_class.compiled_class.compiled_class_hash",
+        "starkware.starknet.core.os.contract_class.compiled_class.compiled_class_hash",
         poseidon_ptr=poseidon_ptr,
         compiled_class=compiled_class_struct,
         use_full_name=True,
@@ -469,6 +471,7 @@ Got {type(ex).__name__} exception during the execution of {func_name}:
 
     return implicit_retvals, explicit_retvals
 
+
 def cairo_rs_py_prepare_builtins(runner: CairoRunner) -> List[MaybeRelocatable]:
     """
     Initializes and returns the builtin segments.
@@ -504,9 +507,11 @@ def cairo_rs_py_validate_segment_pointers(
     assert (
         segment_base_ptr.offset == 0
     ), f"Segment base pointer must be zero; got {segment_base_ptr.offset}."
-
-    expected_stop_ptr = segment_base_ptr + segments.get_segment_used_size(
-        segment_base_ptr.segment_index
+    expected_stop_ptr = RelocatableValue(
+        (
+            segment_base_ptr.segment_index,
+            segments.get_segment_used_size(segment_base_ptr.segment_index),
+        )
     )
 
     stark_assert(
@@ -518,7 +523,10 @@ def cairo_rs_py_validate_segment_pointers(
         ),
     )
 
-def cairo_rs_py_validate_builtins(runner: CairoRunner, builtins_end: MaybeRelocatable, n_builtins: int):
+
+def cairo_rs_py_validate_builtins(
+    runner: CairoRunner, builtins_end: MaybeRelocatable, n_builtins: int
+):
     stack_ptr = builtins_end
     with wrap_with_stark_exception(code=StarknetErrorCode.SECURITY_ERROR):
         stack_ptr = runner.get_builtins_final_stack(stack_ptr)
@@ -526,10 +534,26 @@ def cairo_rs_py_validate_builtins(runner: CairoRunner, builtins_end: MaybeReloca
     assert builtins_start + n_builtins == builtins_end, "Bad returned builtins."
 
 
+def cairo_rs_py_post_run(self, runner: CairoRunner, syscall_stop_ptr: MaybeRelocatable):
+    """
+    Performs post run syscall related tasks.
+    """
+    expected_stop_ptr = self.expected_syscall_ptr
+    stark_assert(
+        syscall_stop_ptr == expected_stop_ptr,
+        code=StarknetErrorCode.SECURITY_ERROR,
+        message=f"Bad syscall_stop_ptr, Expected {expected_stop_ptr}, got {syscall_stop_ptr}.",
+    )
+
+    # self.validate_read_only_segments(runner=runner) //TODO consider if enabling secure_run or doing this validation directly over runner.segments to replace self.segments = runner.segments assert
+
+
 def cairo_rs_py_monkeypatch():
     setattr(ExecuteEntryPoint, "_execute", cairo_rs_py_execute)
     setattr(ExecuteEntryPoint, "_run", cairo_rs_py_run)
-    setattr(ExecuteEntryPoint, "_execute_version0_class", cairo_rs_py_execute_version0_class)
+    setattr(
+        ExecuteEntryPoint, "_execute_version0_class", cairo_rs_py_execute_version0_class
+    )
     setattr(
         sys.modules["starkware.starknet.core.os.contract_class.class_hash"],
         "_compute_class_hash_inner",
@@ -560,4 +584,5 @@ def cairo_rs_py_monkeypatch():
         "get_runtime_type",
         cairo_rs_py_get_runtime_type,
     )
+    setattr(DeprecatedBlSyscallHandler, "post_run", cairo_rs_py_post_run)
     setattr(syscall_utils.HandlerException, "__str__", handler_exception__str__)

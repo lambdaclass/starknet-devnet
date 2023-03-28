@@ -38,6 +38,7 @@ def test_valid_cairo_vm(cairo_vm, assert_rust_vm_logged):
 
     assert proc.returncode == 0
 
+
 def test_passing_if_no_cairo_vm_set():
     """If no vm env var set, it should assume python and pass"""
     env_copy = os.environ.copy()
