@@ -88,7 +88,8 @@ def cairo_rs_py_execute(
     )
     with wrap_with_stark_exception(code=StarknetErrorCode.SECURITY_ERROR):
         runner = cairo_rs_py.CairoRunner(  # pylint: disable=no-member
-            program=program.dumps()
+            program=program.dumps(),
+            entrypoint=None
         )
     runner.initialize_function_runner(add_segment_arena_builtin=True)
 
@@ -138,7 +139,7 @@ def cairo_rs_py_execute(
         entry_point_args=entry_point_args,
         hint_locals={"syscall_handler": syscall_handler},
         run_resources=tx_execution_context.run_resources,
-        program_segment_size=len(runner.program.data) + len(program_extra_data),
+        program_segment_size=len(program.data) + len(program_extra_data),
         allow_tmp_segments=True,
     )
 
