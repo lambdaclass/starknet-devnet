@@ -10,7 +10,6 @@ import sys
 from typing import Any, Dict, List, Optional, Tuple, Type, Union, cast
 
 from cairo_rs_py import CairoRunner, RelocatableValue
-from starkware.cairo.common.cairo_function_runner import CairoFunctionRunner
 from starkware.cairo.common.structs import CairoStructFactory
 from starkware.cairo.lang.compiler.ast.cairo_types import (
     CairoType,
@@ -255,7 +254,7 @@ def cairo_rs_py_execute(
 
 def cairo_rs_py_run(
     self,
-    runner: CairoFunctionRunner,
+    runner: CairoRunner,
     entry_point_offset: int,
     entry_point_args,
     hint_locals: Dict[str, Any],
@@ -263,7 +262,6 @@ def cairo_rs_py_run(
     allow_tmp_segments: bool,
     program_segment_size: Optional[int] = None,
 ):
-
     """
     Runs the runner from the entrypoint offset with the given arguments.
 
@@ -471,7 +469,7 @@ Got {type(ex).__name__} exception during the execution of {func_name}:
 
     return implicit_retvals, explicit_retvals
 
-def cairo_rs_py_prepare_builtins(runner: CairoFunctionRunner) -> List[MaybeRelocatable]:
+def cairo_rs_py_prepare_builtins(runner: CairoRunner) -> List[MaybeRelocatable]:
     """
     Initializes and returns the builtin segments.
     """
@@ -520,6 +518,14 @@ def cairo_rs_py_validate_segment_pointers(
         ),
     )
 
+def cairo_rs_py_validate_builtins(runner: CairoRunner, builtins_end: MaybeRelocatable, n_builtins: int):
+    stack_ptr = builtins_end
+    with wrap_with_stark_exception(code=StarknetErrorCode.SECURITY_ERROR):
+        stack_ptr = runner.get_builtins_final_stack(stack_ptr)
+    builtins_start = stack_ptr
+    assert builtins_start + n_builtins == builtins_end, "Bad returned builtins."
+
+
 def cairo_rs_py_monkeypatch():
     setattr(ExecuteEntryPoint, "_execute", cairo_rs_py_execute)
     setattr(ExecuteEntryPoint, "_run", cairo_rs_py_run)
@@ -538,6 +544,11 @@ def cairo_rs_py_monkeypatch():
         sys.modules["starkware.starknet.core.os.os_utils"],
         "prepare_builtins",
         cairo_rs_py_prepare_builtins,
+    )
+    setattr(
+        sys.modules["starkware.starknet.core.os.os_utils"],
+        "validate_builtins",
+        cairo_rs_py_validate_builtins,
     )
     setattr(
         sys.modules["starkware.starknet.core.os.segment_utils"],
