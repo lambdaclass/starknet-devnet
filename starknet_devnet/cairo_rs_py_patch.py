@@ -111,7 +111,7 @@ def cairo_rs_py_execute_version0_class(
         # Prepare all arguments.
         entry_point_args = [
             self.entry_point_selector,
-            *implicit_args,
+            implicit_args,
             len(self.calldata),
             # Allocate and mark the segment as read-only (to mark every input array as read-only).
             syscall_handler._allocate_segment(data=self.calldata),
