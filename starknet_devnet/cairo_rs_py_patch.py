@@ -376,14 +376,6 @@ def cairo_rs_py_compute_compiled_class_hash_inner(compiled_class: CompiledClass)
         use_full_name=True,
         verify_secure=False,
     )
-
-    runner.run(
-        "starkware.starknet.core.os.contract_class.compiled_class.compiled_class_hash",
-        poseidon_ptr=runner.poseidon_builtin.base,
-        compiled_class=compiled_class_struct,
-        use_full_name=True,
-        verify_secure=False,
-    )
     _, class_hash = runner.get_return_values(2)
     return class_hash
 
