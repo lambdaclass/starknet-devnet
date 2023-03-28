@@ -83,7 +83,7 @@ def cairo_rs_py_execute_version0_class(
             runner = cairo_rs_py.CairoRunner(
                 program=compiled_class.program.dumps(), entrypoint=None
             )
-            runner.initialize_function_runner()
+            runner.initialize_function_runner(add_segment_arena_builtin=False)
 
         # Prepare implicit arguments.
         implicit_args = os_utils.prepare_os_implicit_args_for_version0_class(runner=runner)
