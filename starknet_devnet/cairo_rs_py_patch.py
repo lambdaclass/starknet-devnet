@@ -81,7 +81,7 @@ def cairo_rs_py_execute_version0_class(
         # Prepare runner.
         with wrap_with_stark_exception(code=StarknetErrorCode.SECURITY_ERROR):
             runner = cairo_rs_py.CairoRunner(
-                program=compiled_class.program, entry_point=None
+                program=compiled_class.program.dumps(), entrypoint=None
             )
             runner.initialize_function_runner()
 
