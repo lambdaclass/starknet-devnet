@@ -18,6 +18,10 @@ from starkware.cairo.lang.compiler.ast.cairo_types import (
     TypeFelt,
     TypePointer,
 )
+from starkware.starknet.core.os.contract_class.compiled_class_hash_utils import (
+    get_compiled_class_struct,
+    load_compiled_class_cairo_program,
+)
 from starkware.cairo.lang.compiler.program import Program
 from starkware.cairo.lang.compiler.scoped_name import ScopedName
 from starkware.cairo.lang.vm.memory_segments import MemorySegmentManager
@@ -351,6 +355,38 @@ def cairo_rs_py_compute_class_hash_inner(
     _, class_hash = runner.get_return_values(2)
     return class_hash
 
+def cairo_rs_py_compute_compiled_class_hash_inner(compiled_class: CompiledClass) -> int:
+    program = load_compiled_class_cairo_program()
+    compiled_class_struct = get_compiled_class_struct(
+        identifiers=program.identifiers, compiled_class=compiled_class
+    )
+    runner = cairo_rs_py.CairoRunner(  # pylint: disable=no-member
+        program=program.dumps(),
+        entrypoint=None
+    )
+    runner.initialize_function_runner(add_segment_arena_builtin=False)
+    poseidon_ptr = runner.get_poseidon_builtin_base()
+
+    run_function_runner(
+        runner,
+        program,
+         "starkware.starknet.core.os.contract_class.compiled_class.compiled_class_hash",
+        poseidon_ptr=poseidon_ptr,
+        compiled_class=compiled_class_struct,
+        use_full_name=True,
+        verify_secure=False,
+    )
+
+    runner.run(
+        "starkware.starknet.core.os.contract_class.compiled_class.compiled_class_hash",
+        poseidon_ptr=runner.poseidon_builtin.base,
+        compiled_class=compiled_class_struct,
+        use_full_name=True,
+        verify_secure=False,
+    )
+    _, class_hash = runner.get_return_values(2)
+    return class_hash
+
 
 def run_function_runner(
     runner,
@@ -495,7 +531,6 @@ def cairo_rs_py_validate_segment_pointers(
         ),
     )
 
-
 def cairo_rs_py_monkeypatch():
     setattr(ExecuteEntryPoint, "_execute", cairo_rs_py_execute)
     setattr(ExecuteEntryPoint, "_run", cairo_rs_py_run)
@@ -504,6 +539,11 @@ def cairo_rs_py_monkeypatch():
         sys.modules["starkware.starknet.core.os.contract_class.class_hash"],
         "_compute_class_hash_inner",
         cairo_rs_py_compute_class_hash_inner,
+    )
+    setattr(
+        sys.modules["starkware.starknet.core.os.contract_class.compiled_class_hash"],
+        "_compute_compiled_class_hash_inner",
+        cairo_rs_py_compute_compiled_class_hash_inner,
     )
     setattr(
         sys.modules["starkware.starknet.core.os.os_utils"],
