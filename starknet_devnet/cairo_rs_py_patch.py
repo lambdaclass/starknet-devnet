@@ -534,7 +534,9 @@ def cairo_rs_py_validate_builtins(
     assert builtins_start + n_builtins == builtins_end, "Bad returned builtins."
 
 
-def cairo_rs_py_post_run(self, runner: CairoRunner, syscall_stop_ptr: MaybeRelocatable):
+def cairo_rs_py_post_run_deprecated(
+    self, runner: CairoRunner, syscall_stop_ptr: MaybeRelocatable
+):
     """
     Performs post run syscall related tasks.
     """
@@ -545,7 +547,23 @@ def cairo_rs_py_post_run(self, runner: CairoRunner, syscall_stop_ptr: MaybeReloc
         message=f"Bad syscall_stop_ptr, Expected {expected_stop_ptr}, got {syscall_stop_ptr}.",
     )
 
-    # self.validate_read_only_segments(runner=runner) //TODO consider if enabling secure_run or doing this validation directly over runner.segments to replace self.segments = runner.segments assert
+
+# self.validate_read_only_segments(runner=runner) //TODO consider if enabling secure_run or doing this validation directly over runner.segments to replace self.segments = runner.segments assert
+def cairo_rs_py_post_run(self, runner: CairoRunner, syscall_end_ptr: MaybeRelocatable):
+    """
+    Performs post-run syscall-related tasks.
+    """
+    expected_syscall_end_ptr = self.syscall_ptr
+    stark_assert(
+        syscall_end_ptr == expected_syscall_end_ptr,
+        code=StarknetErrorCode.SECURITY_ERROR,
+        message=(
+            f"Bad syscall_stop_ptr, Expected {expected_syscall_end_ptr}, "
+            f"got {syscall_end_ptr}."
+        ),
+    )
+
+    # self._validate_read_only_segments(runner=runner) //TODO consider if enabling secure_run or doing this validation directly over runner.segments to replace self.segments = runner.segments assert
 
 
 def cairo_rs_py_monkeypatch():
@@ -584,5 +602,6 @@ def cairo_rs_py_monkeypatch():
         "get_runtime_type",
         cairo_rs_py_get_runtime_type,
     )
-    setattr(DeprecatedBlSyscallHandler, "post_run", cairo_rs_py_post_run)
+    setattr(DeprecatedBlSyscallHandler, "post_run", cairo_rs_py_post_run_deprecated)
+    setattr(BusinessLogicSyscallHandler, "post_run", cairo_rs_py_post_run)
     setattr(syscall_utils.HandlerException, "__str__", handler_exception__str__)
