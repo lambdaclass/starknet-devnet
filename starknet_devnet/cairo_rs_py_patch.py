@@ -283,7 +283,8 @@ def cairo_rs_py_run(
                 "__chained_ec_op_max_len": 1000,
             },
             run_resources=run_resources,
-            verify_secure=False,  # TODO set to True
+            verify_secure=True,
+            program_segment_size=program_segment_size
         )
     except VmException as exception:
         code: ErrorCode = StarknetErrorCode.TRANSACTION_FAILED
