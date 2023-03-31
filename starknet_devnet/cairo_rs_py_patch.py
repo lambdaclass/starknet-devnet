@@ -541,13 +541,17 @@ def cairo_rs_py_validate_read_only_segments(self, runner: CairoRunner):
     Validates that there were no out of bounds writes to read-only segments and marks
     them as accessed.
     """
-    # assert self.segments is runner.segments, "Inconsistent segments."
-
     for segment_ptr, segment_size in self.read_only_segments:
-        # TODO: We can check segment_size & segment_used_size against VM here
+        # Check segment usage individually instead of comparing the whole MemorySegmentManager structures
+        assert segment_size == runner.segments.get_segment_size(
+            segment_ptr.segment_index
+        ), "Inconsistent segments."
         used_size = self.segments.get_segment_used_size(
             segment_index=segment_ptr.segment_index
         )
+        assert used_size == runner.segments.get_segment_used_size(
+            segment_ptr.segment_index
+        ), "Inconsistent segments."
         stark_assert(
             used_size == segment_size,
             code=StarknetErrorCode.SECURITY_ERROR,
