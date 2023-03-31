@@ -284,7 +284,7 @@ def cairo_rs_py_run(
             },
             run_resources=run_resources,
             verify_secure=True,
-            program_segment_size=program_segment_size
+            program_segment_size=program_segment_size,
         )
     except VmException as exception:
         code: ErrorCode = StarknetErrorCode.TRANSACTION_FAILED
@@ -534,28 +534,40 @@ def cairo_rs_py_validate_builtins(
     builtins_start = stack_ptr
     assert builtins_start + n_builtins == builtins_end, "Bad returned builtins."
 
-def cairo_rs_py_validate_read_only_segments(self, runner: CairoRunner):
-        """
-        Validates that there were no out of bounds writes to read-only segments and marks
-        them as accessed.
-        """
-        #assert self.segments is runner.segments, "Inconsistent segments."
 
-        for segment_ptr, segment_size in self.read_only_segments:
-            #TODO: We can check segment_size & segment_used_size against VM here
-            used_size = self.segments.get_segment_used_size(segment_index=segment_ptr.segment_index)
-            stark_assert(
-                used_size == segment_size,
-                code=StarknetErrorCode.SECURITY_ERROR,
-                message="Out of bounds write to a read-only segment.",
-            )
-            runner.mark_as_accessed(address=segment_ptr, size=segment_size)
+def cairo_rs_py_validate_read_only_segments(self, runner: CairoRunner):
+    """
+    Validates that there were no out of bounds writes to read-only segments and marks
+    them as accessed.
+    """
+    # assert self.segments is runner.segments, "Inconsistent segments."
+
+    for segment_ptr, segment_size in self.read_only_segments:
+        # TODO: We can check segment_size & segment_used_size against VM here
+        used_size = self.segments.get_segment_used_size(
+            segment_index=segment_ptr.segment_index
+        )
+        stark_assert(
+            used_size == segment_size,
+            code=StarknetErrorCode.SECURITY_ERROR,
+            message="Out of bounds write to a read-only segment.",
+        )
+        runner.mark_as_accessed(address=segment_ptr, size=segment_size)
+
 
 def cairo_rs_py_monkeypatch():
     setattr(ExecuteEntryPoint, "_execute", cairo_rs_py_execute)
     setattr(ExecuteEntryPoint, "_run", cairo_rs_py_run)
-    setattr(BusinessLogicSyscallHandler, "_validate_read_only_segments", cairo_rs_py_validate_read_only_segments)
-    setattr(DeprecatedBlSyscallHandler, "validate_read_only_segments", cairo_rs_py_validate_read_only_segments)
+    setattr(
+        BusinessLogicSyscallHandler,
+        "_validate_read_only_segments",
+        cairo_rs_py_validate_read_only_segments,
+    )
+    setattr(
+        DeprecatedBlSyscallHandler,
+        "validate_read_only_segments",
+        cairo_rs_py_validate_read_only_segments,
+    )
     setattr(
         ExecuteEntryPoint, "_execute_version0_class", cairo_rs_py_execute_version0_class
     )
