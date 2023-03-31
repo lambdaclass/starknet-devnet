@@ -273,7 +273,7 @@ def cairo_rs_py_run(
     try:
         runner.run_from_entrypoint(
             entry_point_offset,
-            non_typed_args=entry_point_args,
+            args=entry_point_args,
             hint_locals=hint_locals,
             static_locals={
                 "__find_element_max_size": 2**20,
@@ -421,9 +421,10 @@ def run_function_runner(
     try:
         runner.run_from_entrypoint(
             entrypoint,
-            typed_args=all_args,
+            args=all_args,
             hint_locals=hint_locals,
             static_locals=static_locals,
+            typed_args=True,
             verify_secure=verify_secure,
             apply_modulo_to_args=apply_modulo_to_args,
         )
