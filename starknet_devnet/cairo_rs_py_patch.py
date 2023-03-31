@@ -534,42 +534,28 @@ def cairo_rs_py_validate_builtins(
     builtins_start = stack_ptr
     assert builtins_start + n_builtins == builtins_end, "Bad returned builtins."
 
+def cairo_rs_py_validate_read_only_segments(self, runner: CairoRunner):
+        """
+        Validates that there were no out of bounds writes to read-only segments and marks
+        them as accessed.
+        """
+        #assert self.segments is runner.segments, "Inconsistent segments."
 
-def cairo_rs_py_post_run_deprecated(
-    self, runner: CairoRunner, syscall_stop_ptr: MaybeRelocatable
-):
-    """
-    Performs post run syscall related tasks.
-    """
-    expected_stop_ptr = self.expected_syscall_ptr
-    stark_assert(
-        syscall_stop_ptr == expected_stop_ptr,
-        code=StarknetErrorCode.SECURITY_ERROR,
-        message=f"Bad syscall_stop_ptr, Expected {expected_stop_ptr}, got {syscall_stop_ptr}.",
-    )
-
-
-# self.validate_read_only_segments(runner=runner) //TODO consider if enabling secure_run or doing this validation directly over runner.segments to replace self.segments = runner.segments assert
-def cairo_rs_py_post_run(self, runner: CairoRunner, syscall_end_ptr: MaybeRelocatable):
-    """
-    Performs post-run syscall-related tasks.
-    """
-    expected_syscall_end_ptr = self.syscall_ptr
-    stark_assert(
-        syscall_end_ptr == expected_syscall_end_ptr,
-        code=StarknetErrorCode.SECURITY_ERROR,
-        message=(
-            f"Bad syscall_stop_ptr, Expected {expected_syscall_end_ptr}, "
-            f"got {syscall_end_ptr}."
-        ),
-    )
-
-    # self._validate_read_only_segments(runner=runner) //TODO consider if enabling secure_run or doing this validation directly over runner.segments to replace self.segments = runner.segments assert
-
+        for segment_ptr, segment_size in self.read_only_segments:
+            #TODO: We can check segment_size & segment_used_size against VM here
+            used_size = self.segments.get_segment_used_size(segment_index=segment_ptr.segment_index)
+            stark_assert(
+                used_size == segment_size,
+                code=StarknetErrorCode.SECURITY_ERROR,
+                message="Out of bounds write to a read-only segment.",
+            )
+            runner.mark_as_accessed(address=segment_ptr, size=segment_size)
 
 def cairo_rs_py_monkeypatch():
     setattr(ExecuteEntryPoint, "_execute", cairo_rs_py_execute)
     setattr(ExecuteEntryPoint, "_run", cairo_rs_py_run)
+    setattr(BusinessLogicSyscallHandler, "_validate_read_only_segments", cairo_rs_py_validate_read_only_segments)
+    setattr(DeprecatedBlSyscallHandler, "validate_read_only_segments", cairo_rs_py_validate_read_only_segments)
     setattr(
         ExecuteEntryPoint, "_execute_version0_class", cairo_rs_py_execute_version0_class
     )
@@ -603,6 +589,4 @@ def cairo_rs_py_monkeypatch():
         "get_runtime_type",
         cairo_rs_py_get_runtime_type,
     )
-    setattr(DeprecatedBlSyscallHandler, "post_run", cairo_rs_py_post_run_deprecated)
-    setattr(BusinessLogicSyscallHandler, "post_run", cairo_rs_py_post_run)
     setattr(syscall_utils.HandlerException, "__str__", handler_exception__str__)
