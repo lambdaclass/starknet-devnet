@@ -4,6 +4,8 @@
 # pylint: disable=missing-function-docstring
 # pylint: disable=protected-access
 # pylint: disable=too-many-locals
+# pylint: disable=no-name-in-module
+# pylint: disable=too-many-arguments
 
 import logging
 import sys
@@ -40,7 +42,7 @@ from starkware.starknet.business_logic.utils import (
     get_call_result,
     get_call_result_for_version0_class,
 )
-from starkware.starknet.core.os import os_utils, segment_utils, syscall_utils
+from starkware.starknet.core.os import os_utils, syscall_utils
 from starkware.starknet.core.os.contract_class.class_hash import (
     get_contract_class_struct,
     load_contract_class_cairo_program,
@@ -56,7 +58,6 @@ from starkware.starknet.core.os.syscall_handler import (
 from starkware.starknet.definitions.error_codes import StarknetErrorCode
 from starkware.starknet.definitions.general_config import StarknetGeneralConfig
 from starkware.starknet.public import abi as starknet_abi
-from starkware.starknet.public.abi import SYSCALL_PTR_OFFSET_IN_VERSION0
 from starkware.starknet.services.api.contract_class.contract_class import (
     CompiledClass,
     ContractClass,
@@ -130,7 +131,6 @@ def cairo_rs_py_execute_version0_class(
         entry_point_args=entry_point_args,
         hint_locals={"syscall_handler": syscall_handler},
         run_resources=tx_execution_context.run_resources,
-        allow_tmp_segments=False,
     )
 
     # Complete validations.
@@ -227,7 +227,6 @@ def cairo_rs_py_execute(
         hint_locals={"syscall_handler": syscall_handler},
         run_resources=tx_execution_context.run_resources,
         program_segment_size=len(program.data) + len(program_extra_data),
-        allow_tmp_segments=True,
     )
 
     # We should not count (possibly) unsued code as holes.
@@ -256,13 +255,13 @@ def cairo_rs_py_execute(
 
 
 def cairo_rs_py_run(
+    # pylint: disable=unused-argument
     self,
     runner: CairoRunner,
     entry_point_offset: int,
     entry_point_args,
     hint_locals: Dict[str, Any],
     run_resources: RunResources,
-    allow_tmp_segments: bool,
     program_segment_size: Optional[int] = None,
 ):
     """
