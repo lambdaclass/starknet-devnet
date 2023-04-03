@@ -508,11 +508,9 @@ def cairo_rs_py_validate_segment_pointers(
     assert (
         segment_base_ptr.offset == 0
     ), f"Segment base pointer must be zero; got {segment_base_ptr.offset}."
-    expected_stop_ptr = RelocatableValue(
-        (
-            segment_base_ptr.segment_index,
-            segments.get_segment_used_size(segment_base_ptr.segment_index),
-        )
+
+    expected_stop_ptr = segment_base_ptr + segments.get_segment_used_size(
+        segment_index=segment_base_ptr.segment_index
     )
 
     stark_assert(
