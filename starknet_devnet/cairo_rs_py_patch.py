@@ -9,7 +9,7 @@
 
 import logging
 import sys
-from typing import Any, Dict, List, Optional, Tuple, Type, Union, cast
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, cast
 
 from cairo_rs_py import CairoRunner, RelocatableValue
 from starkware.cairo.common.structs import CairoStructFactory
@@ -50,6 +50,10 @@ from starkware.starknet.core.os.contract_class.class_hash import (
 from starkware.starknet.core.os.contract_class.compiled_class_hash_utils import (
     get_compiled_class_struct,
     load_compiled_class_cairo_program,
+)
+from starkware.starknet.core.os.contract_class.deprecated_class_hash import (
+    get_deprecated_contract_class_struct,
+    load_program,
 )
 from starkware.starknet.core.os.syscall_handler import (
     BusinessLogicSyscallHandler,
@@ -377,6 +381,33 @@ def cairo_rs_py_compute_compiled_class_hash_inner(compiled_class: CompiledClass)
     return class_hash
 
 
+def cairo_rs_py_compute_deprecated_class_hash_inner(
+    contract_class: DeprecatedCompiledClass, hash_func: Callable[[int, int], int]
+) -> int:
+    program = load_program()
+    compiled_class_struct = get_deprecated_contract_class_struct(
+        identifiers=program.identifiers, contract_class=contract_class
+    )
+    runner = CairoRunner(  # pylint: disable=no-member
+        program=program.dumps(), entrypoint=None
+    )
+    runner.initialize_function_runner(add_segment_arena_builtin=False)
+    hash_ptr = runner.get_hash_builtin_base()
+
+    run_function_runner(
+        runner,
+        program,
+        "starkware.starknet.core.os.contract_class.deprecated_compiled_class."
+        + "deprecated_compiled_class_hash",
+        hash_ptr=hash_ptr,
+        compiled_class=compiled_class_struct,
+        use_full_name=True,
+        verify_secure=False,
+    )
+    _, class_hash = runner.get_return_values(2)
+    return class_hash
+
+
 def run_function_runner(
     runner,
     program,
@@ -582,6 +613,11 @@ def cairo_rs_py_monkeypatch():
         sys.modules["starkware.starknet.core.os.contract_class.compiled_class_hash"],
         "_compute_compiled_class_hash_inner",
         cairo_rs_py_compute_compiled_class_hash_inner,
+    )
+    setattr(
+        sys.modules["starkware.starknet.core.os.contract_class.deprecated_class_hash"],
+        "compute_deprecated_class_hash_inner",
+        cairo_rs_py_compute_deprecated_class_hash_inner,
     )
     setattr(
         sys.modules["starkware.starknet.core.os.os_utils"],
