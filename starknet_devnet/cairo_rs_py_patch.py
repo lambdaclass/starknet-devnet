@@ -383,7 +383,8 @@ def cairo_rs_py_compute_compiled_class_hash_inner(compiled_class: CompiledClass)
 
 def cairo_rs_py_compute_deprecated_class_hash_inner(
     # pylint: disable=unused-argument
-    contract_class: DeprecatedCompiledClass, hash_func: Callable[[int, int], int]
+    contract_class: DeprecatedCompiledClass,
+    hash_func: Callable[[int, int], int],
 ) -> int:
     program = load_program()
     compiled_class_struct = get_deprecated_contract_class_struct(
