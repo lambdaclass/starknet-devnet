@@ -9,7 +9,7 @@ echo "pip3: $(pip3 --version)"
 echo "python: $(python --version)"
 echo "python3: $(python3 --version)"
 
-pip3 install -U poetry==1.3
+./scripts/install_poetry.sh
 echo "poetry: $(poetry --version)"
 
 # https://www.rust-lang.org/tools/install
@@ -28,8 +28,11 @@ if [ -z "$CAIRO_1_COMPILER_MANIFEST" ]; then
         --branch v1.0.0-alpha.6 \
         --single-branch
     CAIRO_1_COMPILER_MANIFEST="cairo-compiler/Cargo.toml"
+
     if [ -n "$CIRCLE_BRANCH" ]; then
-        echo "source ~/.cargo/env" >"$BASH_ENV"
+        # needed by further testing steps
+        echo "export CAIRO_1_COMPILER_MANIFEST=$CAIRO_1_COMPILER_MANIFEST" >>"$BASH_ENV"
+        echo "source ~/.cargo/env" >>"$BASH_ENV"
     fi
 fi
 

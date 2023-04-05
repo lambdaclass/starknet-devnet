@@ -48,12 +48,14 @@ optional arguments:
   --fork-block FORK_BLOCK
                         Specify the block number where the --fork-network is forked; defaults to latest
   --fork-retries FORK_RETRIES
-                        Specify the number of retries of failed HTTP requests sent to the network before giving up, defaults to 1
-  --chain-id CHAIN_ID   Specify the chain id as string: {MAINNET, TESTNET, TESTNET2}
+                        Specify the number of retries of failed HTTP requests sent to the network before giving up; defaults to 1
+  --chain-id CHAIN_ID   Specify the chain id as one of: {MAINNET, TESTNET, TESTNET2}; defaults to TESTNET (0x534e5f474f45524c49)
   --disable-rpc-request-validation
                         Disable requests schema validation for RPC endpoints
   --disable-rpc-response-validation
                         Disable RPC schema validation for devnet responses
+  --cairo-compiler-manifest CAIRO_COMPILER_MANIFEST
+                        Specify the path to the manifest (Cargo.toml) of the Cairo 1.0 compiler to be used for contract recompilation; if omitted, the default x86-compatible compiler (from cairo-lang package) is used
 ```
 
 You can run `starknet-devnet` in a separate shell, or you can run it in background with `starknet-devnet &`.
@@ -132,6 +134,7 @@ If you don't specify the `HOST` part, the server will indeed be available on all
 ## Run with the Rust implementation of Cairo VM
 
 <!-- # TMP: rust vm -->
+
 ### ⚠️ This feature is temporarily suspended! ⚠️
 
 By default, Devnet uses the [Python implementation](https://github.com/starkware-libs/cairo-lang/) of Cairo VM.

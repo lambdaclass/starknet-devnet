@@ -5,6 +5,7 @@ import asyncio
 import contextlib
 import json
 import os
+import subprocess
 import sys
 from enum import Enum, auto
 from typing import List
@@ -45,6 +46,7 @@ NETWORK_TO_URL = {
 }
 NETWORK_NAMES = ", ".join(NETWORK_TO_URL.keys())
 CHAIN_IDS = ", ".join([member.name for member in StarknetChainId])
+DEFAULT_CHAIN_ID = StarknetChainId.TESTNET
 
 
 def _fork_network(network_id: str):
@@ -209,6 +211,33 @@ class PositiveAction(argparse.Action):
         setattr(namespace, self.dest, value)
 
 
+def _parse_cairo_compiler_manifest(manifest_path: str):
+    """Assert user machine can compile with cairo 1"""
+    check = subprocess.run(
+        [
+            "cargo",
+            "run",
+            "--bin",
+            "starknet-compile",
+            "--manifest-path",
+            manifest_path,
+            "--",
+            "--version",
+        ],
+        check=False,
+        capture_output=True,
+    )
+
+    if check.returncode:
+        stderr_content = check.stderr.decode("utf-8")
+        sys.exit(f"Cairo compiler error: {stderr_content}")
+
+    version_used = check.stdout.decode("utf-8")
+    print(f"Using cairo compiler: {version_used}")
+
+    return manifest_path
+
+
 def parse_args(raw_args: List[str]):
     """
     Parses CLI arguments.
@@ -328,13 +357,13 @@ def parse_args(raw_args: List[str]):
         type=int,
         default=1,
         action=PositiveAction,
-        help="Specify the number of retries of failed HTTP requests sent to the network before giving up, defaults to 1",
+        help="Specify the number of retries of failed HTTP requests sent to the network before giving up; defaults to 1",
     )
     parser.add_argument(
         "--chain-id",
         type=_chain_id,
-        default=StarknetChainId.TESTNET,
-        help=f"Specify the chain id as string: {{{CHAIN_IDS}}}",
+        default=DEFAULT_CHAIN_ID,
+        help=f"Specify the chain id as one of: {{{CHAIN_IDS}}}; defaults to {DEFAULT_CHAIN_ID.name} ({hex(DEFAULT_CHAIN_ID.value)})",
     )
     parser.add_argument(
         "--disable-rpc-request-validation",
@@ -345,6 +374,12 @@ def parse_args(raw_args: List[str]):
         "--disable-rpc-response-validation",
         action="store_true",
         help="Disable RPC schema validation for devnet responses",
+    )
+    parser.add_argument(
+        "--cairo-compiler-manifest",
+        type=_parse_cairo_compiler_manifest,
+        help="Specify the path to the manifest (Cargo.toml) of the Cairo 1.0 compiler to be used for contract recompilation; "
+        "if omitted, the default x86-compatible compiler (from cairo-lang package) is used",
     )
 
     parsed_args = parser.parse_args(raw_args)
@@ -386,3 +421,4 @@ class DevnetConfig:
         self.chain_id = self.args.chain_id
         self.validate_rpc_requests = not self.args.disable_rpc_request_validation
         self.validate_rpc_responses = not self.args.disable_rpc_response_validation
+        self.cairo_compiler_manifest = self.args.cairo_compiler_manifest
