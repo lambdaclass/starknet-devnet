@@ -18,7 +18,7 @@ _RUST_VM_LOG_LINE = "Using Cairo VM: Rust"
     [
         ("", False),
         ("python", False),
-        # ("rust", True),
+        ("rust", True),
     ],
 )
 def test_valid_cairo_vm(cairo_vm, assert_rust_vm_logged):
