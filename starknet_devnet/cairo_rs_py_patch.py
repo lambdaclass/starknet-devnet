@@ -590,22 +590,23 @@ def cairo_rs_py_validate_read_only_segments(self, runner: CairoRunner):
         )
         runner.mark_as_accessed(address=segment_ptr, size=segment_size)
 
+
 def cairo_rs_py_get_felt_range(self, start_addr: Any, end_addr: Any) -> List[int]:
-        print(type(start_addr))
-        assert isinstance(start_addr, RelocatableValue)
-        assert isinstance(end_addr, RelocatableValue)
-        assert start_addr.segment_index == end_addr.segment_index, (
-            "Inconsistent start and end segment indices "
-            f"({start_addr.segment_index} != {end_addr.segment_index})."
-        )
+    print(type(start_addr))
+    assert isinstance(start_addr, RelocatableValue)
+    assert isinstance(end_addr, RelocatableValue)
+    assert start_addr.segment_index == end_addr.segment_index, (
+        "Inconsistent start and end segment indices "
+        f"({start_addr.segment_index} != {end_addr.segment_index})."
+    )
 
-        assert start_addr.offset <= end_addr.offset, (
-            "The start offset cannot be greater than the end offset"
-            f"({start_addr.offset} > {end_addr.offset})."
-        )
+    assert start_addr.offset <= end_addr.offset, (
+        "The start offset cannot be greater than the end offset"
+        f"({start_addr.offset} > {end_addr.offset})."
+    )
 
-        size = end_addr.offset - start_addr.offset
-        return self.segments.memory.get_range_as_ints(addr=start_addr, size=size)
+    size = end_addr.offset - start_addr.offset
+    return self.segments.memory.get_range_as_ints(addr=start_addr, size=size)
 
 
 def cairo_rs_py_monkeypatch():
