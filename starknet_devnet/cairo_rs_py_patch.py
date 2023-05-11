@@ -592,7 +592,6 @@ def cairo_rs_py_validate_read_only_segments(self, runner: CairoRunner):
 
 
 def cairo_rs_py_get_felt_range(self, start_addr: Any, end_addr: Any) -> List[int]:
-    print(type(start_addr))
     assert isinstance(start_addr, RelocatableValue)
     assert isinstance(end_addr, RelocatableValue)
     assert start_addr.segment_index == end_addr.segment_index, (
