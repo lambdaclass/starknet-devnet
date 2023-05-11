@@ -598,12 +598,10 @@ def cairo_rs_py_get_felt_range(self, start_addr: Any, end_addr: Any) -> List[int
         "Inconsistent start and end segment indices "
         f"({start_addr.segment_index} != {end_addr.segment_index})."
     )
-
     assert start_addr.offset <= end_addr.offset, (
         "The start offset cannot be greater than the end offset"
         f"({start_addr.offset} > {end_addr.offset})."
     )
-
     size = end_addr.offset - start_addr.offset
     return self.segments.memory.get_range_as_ints(addr=start_addr, size=size)
 
